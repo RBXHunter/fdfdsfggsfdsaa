@@ -1,19 +1,16 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local CONFIG = {
-    -- Бедра и тяга
     TargetHipHeight = 100,
     ResetHipHeight = 0,
-    HipHeightResetBeforeEnd = 1,        -- время перед концом анимации, когда сбрасывать HipHeight
-    DelayBeforeHipHeightChange = 2,     -- задержка перед поднятием HipHeight после старта анимации
+    HipHeightResetBeforeEnd = 1,
+    DelayBeforeHipHeightChange = 2,
     TransitionTime = 0.5,
     TransitionTime2 = 0.5,
     EnableWarnings = true,
-
-    -- Анимации замены
+    
     OriginalAnimToReplace = "rbxassetid://12351854556",
     ReplacementAnim = "rbxassetid://17140902079",
     ReplacementTime = 2,
@@ -60,7 +57,7 @@ local function setupCharacter(char)
 
     humanoid.AnimationPlayed:Connect(function(track)
         local animId = track.Animation.AnimationId
-
+        
         if animId == CONFIG.OriginalAnimToReplace then
             track:Stop()
             local newAnim = Instance.new("Animation")
@@ -101,27 +98,28 @@ local function setupCharacter(char)
             end)
 
         elseif animId:match("12296113986") then
-            -- Когда стартует анимация бедер — сначала задержка,
-            -- потом плавный переход HipHeight к TargetHipHeight,
-            -- а перед концом анимации сброс HipHeight
+            -- Функция проверки живости анимации
+            local function isTrackPlaying()
+                return track and track.IsPlaying
+            end
 
-            -- Запускаем задержку перед поднятием бедер
+            -- Задержка перед поднятием бедер
             task.delay(CONFIG.DelayBeforeHipHeightChange, function()
-                if humanoid and humanoid.Parent and not isFalling(humanoid) then
+                if humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
                     transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
                 end
             end)
 
-            -- После того, как HipHeight поднялся, за некоторое время до конца анимации сбрасываем HipHeight
-            local totalAnimLength = track.Length or 0
-            local resetStart = totalAnimLength - CONFIG.HipHeightResetBeforeEnd
-            -- Если сброс начинается раньше, чем задержка, подгоняем
+            -- Время начала сброса HipHeight
+            local totalLength = track.Length or 0
+            local resetStart = totalLength - CONFIG.HipHeightResetBeforeEnd
             if resetStart < CONFIG.DelayBeforeHipHeightChange then
                 resetStart = CONFIG.DelayBeforeHipHeightChange
             end
 
+            -- Задержка перед сбросом бедер
             task.delay(resetStart, function()
-                if humanoid and humanoid.Parent and not isFalling(humanoid) then
+                if humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
                     transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
                 end
             end)
