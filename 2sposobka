@@ -6,13 +6,21 @@ local CONFIG = {
     ResetHipHeight = 0,
     HipHeightResetBeforeEnd = 0.5,
     DelayBeforeHipHeightChange = 1,
-    TransitionTime = 0,
-    TransitionTime2 = 0.5,
+    TransitionTime = 0.3,
+    TransitionTime2 = 0,
     EnableWarnings = false,
+    ForceSpeedPull = 500,
+    DisableBeforeEndPull = 0.5,
 }
 
 local player = Players.LocalPlayer
 local humanoid
+
+local function optionalWarn(msg)
+    if CONFIG.EnableWarnings then
+        warn(msg)
+    end
+end
 
 local function isFalling(h)
     local state = h:GetState()
@@ -34,12 +42,46 @@ local function transitionHipHeight(h, target, duration)
     end
 end
 
+local function applyPull(track, h)
+    local root = h.Parent:FindFirstChild("HumanoidRootPart")
+    if not root then optionalWarn("No HumanoidRootPart found") return end
+
+    local alive = true
+    h.Died:Connect(function() alive = false end)
+
+    local startTime = tick()
+    local len = track.Length or 0
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not alive or not track.IsPlaying then
+            root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+            conn:Disconnect()
+            return
+        end
+        if tick() - startTime >= len - CONFIG.DisableBeforeEndPull then
+            root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+            conn:Disconnect()
+            return
+        end
+        local cam = workspace.CurrentCamera
+        local look = cam and cam.CFrame.LookVector or Vector3.new()
+        local dir = Vector3.new(look.X, 0, look.Z)
+        if dir.Magnitude > 0 then dir = dir.Unit end
+
+        root.Velocity = dir * CONFIG.ForceSpeedPull + Vector3.new(0, root.Velocity.Y, 0)
+    end)
+end
+
 local function setupHipHeight(humanoid)
     humanoid.AnimationPlayed:Connect(function(track)
         local animId = track.Animation.AnimationId
         print("Animation played:", animId) -- Отладка
 
         if animId:find("12296113986") then
+            -- Запуск pull независимо
+            applyPull(track, humanoid)
+
+            -- Отдельно hipHeight трансформация
             local function isTrackPlaying()
                 return track and track.IsPlaying
             end
