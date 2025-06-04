@@ -80,7 +80,7 @@ local function setupHipHeight(humanoid)
             -- Запуск pull независимо
             applyPull(track, humanoid)
 
-            -- Отдельно hipHeight трансформация
+            -- Отдельно hipHeight трансформаци
             local function isTrackPlaying()
                 return track and track.IsPlaying
             end
@@ -109,3 +109,4 @@ if player.Character then
     onCharacterAdded(player.Character)
 end
 player.CharacterAdded:Connect(onCharacterAdded)
+-- 1
