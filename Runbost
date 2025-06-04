@@ -1,0 +1,120 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+local RUN_ANIM_ID = "rbxassetid://17354976067"
+local ANIM_START_TIME = 4
+local ANIM_SPEED = 1.5
+local LAST_SEC_SKIP = 2.3
+local RUN_SPEED_BOOST = 150
+
+local holding = false
+local runAnimTrack = nil
+local monitorConnection = nil
+local boostConnection = nil
+
+local humanoid
+
+local function stopMonitor()
+    if monitorConnection then
+        monitorConnection:Disconnect()
+        monitorConnection = nil
+    end
+end
+
+local function stopBoostLoop()
+    if boostConnection then
+        boostConnection:Disconnect()
+        boostConnection = nil
+    end
+end
+
+local function playRunAnimation()
+    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        track:Stop()
+    end
+    if runAnimTrack then
+        runAnimTrack:Stop()
+        runAnimTrack:Destroy()
+        runAnimTrack = nil
+    end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = RUN_ANIM_ID
+    runAnimTrack = humanoid:LoadAnimation(anim)
+    runAnimTrack.Looped = true
+    runAnimTrack:Play()
+    runAnimTrack.TimePosition = ANIM_START_TIME
+    runAnimTrack:AdjustSpeed(ANIM_SPEED)
+
+    local maxWait = 2
+    local startTime = tick()
+    while runAnimTrack.Length == 0 and tick() - startTime < maxWait do
+        task.wait(0.1)
+    end
+
+    local length = runAnimTrack.Length
+    if length == 0 then
+        warn("Run animation failed to load or has zero length.")
+        return
+    end
+
+    stopMonitor()
+    monitorConnection = RunService.Heartbeat:Connect(function()
+        if not runAnimTrack or not runAnimTrack.IsPlaying then
+            stopMonitor()
+            return
+        end
+        if runAnimTrack.TimePosition >= length - LAST_SEC_SKIP then
+            runAnimTrack.TimePosition = ANIM_START_TIME
+        end
+    end)
+end
+
+local function startRunning()
+    playRunAnimation()
+    stopBoostLoop()
+    boostConnection = RunService.Heartbeat:Connect(function()
+        if holding then
+            humanoid.WalkSpeed = 16 + RUN_SPEED_BOOST
+        end
+    end)
+end
+
+local function stopRunning()
+    stopMonitor()
+    stopBoostLoop()
+    if runAnimTrack then
+        runAnimTrack:Stop()
+        runAnimTrack:Destroy()
+        runAnimTrack = nil
+    end
+    humanoid.WalkSpeed = 16
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Z and not holding then
+        holding = true
+        startRunning()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Z then
+        holding = false
+        stopRunning()
+    end
+end)
+
+local function onCharacterAdded(character)
+    humanoid = character:WaitForChild("Humanoid")
+    stopRunning()
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+player.CharacterAdded:Connect(onCharacterAdded)
