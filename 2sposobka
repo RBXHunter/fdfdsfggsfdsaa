@@ -1,0 +1,70 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local CONFIG = {
+    TargetHipHeight = 200,
+    ResetHipHeight = 0,
+    HipHeightResetBeforeEnd = 0.5,
+    DelayBeforeHipHeightChange = 1,
+    TransitionTime = 0,
+    TransitionTime2 = 0.5,
+    EnableWarnings = false,
+}
+
+local player = Players.LocalPlayer
+local humanoid
+
+local function isFalling(h)
+    local state = h:GetState()
+    return state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.FallingDown
+end
+
+local function transitionHipHeight(h, target, duration)
+    local initial = h.HipHeight
+    local elapsed = 0
+    while elapsed < duration do
+        elapsed += RunService.Heartbeat:Wait()
+        local alpha = elapsed / duration
+        if not isFalling(h) then
+            h.HipHeight = initial + (target - initial) * alpha
+        end
+    end
+    if not isFalling(h) then
+        h.HipHeight = target
+    end
+end
+
+local function setupHipHeight(humanoid)
+    humanoid.AnimationPlayed:Connect(function(track)
+        local animId = track.Animation.AnimationId
+        print("Animation played:", animId) -- Отладка
+
+        if animId:find("12296113986") then
+            local function isTrackPlaying()
+                return track and track.IsPlaying
+            end
+
+            task.delay(CONFIG.DelayBeforeHipHeightChange, function()
+                if humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
+                    transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
+                end
+            end)
+
+            task.delay(track.Length - CONFIG.HipHeightResetBeforeEnd, function()
+                if humanoid and humanoid.Parent then
+                    transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
+                end
+            end)
+        end
+    end)
+end
+
+local function onCharacterAdded(character)
+    humanoid = character:WaitForChild("Humanoid")
+    setupHipHeight(humanoid)
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+player.CharacterAdded:Connect(onCharacterAdded)
