@@ -1,0 +1,66 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character, humanoid
+
+local CONFIG = {
+    ForceSpeedPull = 200,
+    DisableBeforeEndPull = 0.5,
+    EnableWarnings = true,
+}
+
+local function optionalWarn(msg)
+    if CONFIG.EnableWarnings then
+        warn(msg)
+    end
+end
+
+local function applyPull(track, h)
+    local root = h.Parent:FindFirstChild("HumanoidRootPart")
+    if not root then optionalWarn("No HumanoidRootPart found") return end
+
+    local alive = true
+    h.Died:Connect(function() alive = false end)
+
+    local startTime = tick()
+    local len = track.Length or 0
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not alive or not track.IsPlaying then
+            root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+            conn:Disconnect()
+            return
+        end
+        if tick() - startTime >= len - CONFIG.DisableBeforeEndPull then
+            root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+            conn:Disconnect()
+            return
+        end
+        local cam = workspace.CurrentCamera
+        local look = cam and cam.CFrame.LookVector or Vector3.new()
+        local dir = Vector3.new(look.X, 0, look.Z)
+        if dir.Magnitude > 0 then dir = dir.Unit end
+
+        root.Velocity = dir * CONFIG.ForceSpeedPull + Vector3.new(0, root.Velocity.Y, 0)
+    end)
+end
+
+local function setupCharacter(char)
+    character = char
+    humanoid = char:WaitForChild("Humanoid")
+    local animator = humanoid:WaitForChild("Animator")
+
+    humanoid.AnimationPlayed:Connect(function(track)
+        local animId = track.Animation.AnimationId
+        if animId:match("12273188754") then
+            applyPull(track, humanoid)
+        end
+    end)
+end
+
+if player.Character then
+    setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
