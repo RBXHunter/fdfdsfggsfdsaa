@@ -7,6 +7,7 @@ local CONFIG = {
     -- Бедра и тяга
     TargetHipHeight = 100,
     ResetHipHeight = 0,
+    HipHeightResetBeforeEnd = 1, -- время перед концом анимации, когда сбрасывать HipHeight
     TransitionTime = 0.5,
     TransitionTime2 = 0,
     InitialWait = 0,
@@ -195,9 +196,10 @@ local function setupCharacter(char)
         elseif animId:match("12296113986") then
             while isFalling(humanoid) do task.wait(0.1) end
             transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
-            task.delay(track.Length - CONFIG.DisableBeforeEnd, function()
-                transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
-                task.wait(CONFIG.DisableBeforeEnd)
+local resetTime = CONFIG.HipHeightResetBeforeEnd or CONFIG.DisableBeforeEnd
+task.delay(track.Length - resetTime, function()
+    transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
+    task.wait(resetTime)
                 local root = char:FindFirstChild("HumanoidRootPart")
                 if root then
                     local pos = root.Position
