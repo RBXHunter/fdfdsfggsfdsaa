@@ -75,7 +75,6 @@ end
 local function setupHipHeight(humanoid)
     humanoid.AnimationPlayed:Connect(function(track)
         local animId = track.Animation.AnimationId
-        print("Animation played:", animId) -- Отладка
 
         if animId:find("12296113986") then
             -- Запуск pull независимо
