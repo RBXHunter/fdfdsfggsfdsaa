@@ -9,15 +9,15 @@ local CONFIG = {
     ResetHipHeight = 0,
     TransitionTime = 0.5,
     TransitionTime2 = 0,
-    InitialWait = 0,
-    StopWait = 1,
+    InitialWait = 3,
+    StopWait = 2,
     DisableBeforeEnd = 0.3,
     ForceDisableBeforeEnd = 0.3,
     ForceSpeedHip = 150,
     ForceSpeedPull = 200,
     DisableBeforeEndPull = 0.8,
     TeleportY = 441,
-    EnableWarnings = true,
+    EnableWarnings = false,
 
     -- Первая анимация (подъём бедер)
     OriginalAnimToReplace = "rbxassetid://12351854556",
@@ -31,7 +31,7 @@ local CONFIG = {
 
     -- После телепорта
     AnimAfterTeleport = "rbxassetid://17141153099",
-    AnimAfterTeleportTime = 2,
+    AnimAfterTeleportTime = 3,
 }
 
 -- Настройки ускоренного бега
