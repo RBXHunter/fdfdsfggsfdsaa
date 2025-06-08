@@ -1,6 +1,5 @@
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 
 -- Конфигурация
 local Config = {
@@ -18,25 +17,11 @@ local humanoid = character:WaitForChild("Humanoid")
 
 -- Координаты границы карты (X, Z)
 local boundaryPoints = {
-    Vector2.new(-257, -242),
-    Vector2.new(-228, -233),
-    Vector2.new(-173, -276),
-    Vector2.new(-135, -262),
-    Vector2.new(-80, -259),
-    Vector2.new(136, -347),
-    Vector2.new(249, -418),
-    Vector2.new(360, -352),
-    Vector2.new(451, -246),
-    Vector2.new(517, -148),
-    Vector2.new(560, 265),
-    Vector2.new(421, 280),
-    Vector2.new(314, 348),
-    Vector2.new(250, 374),
-    Vector2.new(161, 380),
-    Vector2.new(35, 479),
-    Vector2.new(-90, 354),
-    Vector2.new(-233, 160),
-    Vector2.new(-258, -103)
+    Vector2.new(-257, -242), Vector2.new(-228, -233), Vector2.new(-173, -276), Vector2.new(-135, -262),
+    Vector2.new(-80, -259), Vector2.new(136, -347), Vector2.new(249, -418), Vector2.new(360, -352),
+    Vector2.new(451, -246), Vector2.new(517, -148), Vector2.new(560, 265), Vector2.new(421, 280),
+    Vector2.new(314, 348), Vector2.new(250, 374), Vector2.new(161, 380), Vector2.new(35, 479),
+    Vector2.new(-90, 354), Vector2.new(-233, 160), Vector2.new(-258, -103)
 }
 
 -- Проверка, находится ли точка внутри многоугольника
@@ -55,31 +40,27 @@ local function isPointInPolygon(point, vertices)
     return inside
 end
 
--- Генерация случайной точки в радиусе 100 студов от начальной позиции внутри многоугольника
+-- Генерация случайной точки в радиусе 100 студов от начальной позиции
 local function getRandomPositionInPolygon(initialPos)
     local centerX, centerZ = initialPos.X, initialPos.Z
     local attempts = 0
     local maxAttempts = 100
     
     while attempts < maxAttempts do
-        -- Генерируем случайный угол и радиус
         local angle = math.random() * 2 * math.pi
-        local radius = math.sqrt(math.random()) * Config.teleportRadius -- Равномерное распределение
+        local radius = math.sqrt(math.random()) * Config.teleportRadius
         local x = centerX + radius * math.cos(angle)
         local z = centerZ + radius * math.sin(angle)
         local point = Vector2.new(x, z)
         
-        -- Проверяем, находится ли точка внутри многоугольника
         if isPointInPolygon(point, boundaryPoints) then
             return Vector3.new(x, 441, z)
         end
         attempts = attempts + 1
     end
     
-    -- Если не удалось найти точку, возвращаем ближайшую допустимую точку внутри многоугольника
     local closestPoint = Vector2.new(centerX, centerZ)
     if not isPointInPolygon(closestPoint, boundaryPoints) then
-        -- Находим ближайшую точку на границе многоугольника
         local minDist = math.huge
         for i = 1, #boundaryPoints do
             local vi = boundaryPoints[i]
@@ -98,54 +79,44 @@ local function getRandomPositionInPolygon(initialPos)
     return Vector3.new(closestPoint.X, 441, closestPoint.Y)
 end
 
--- Функция для перемещения персонажа к случайным точкам
+-- Функция для перемещения персонажа
 local function moveToRandomPositions(animationTrack)
+    if not _G.isScriptEnabled then return end
     local startTime = tick()
-    local animationLength = animationTrack.Length -- Длительность анимации
+    local animationLength = animationTrack.Length
     local isAnimationPlaying = true
-    local initialPos = humanoidRootPart.Position -- Сохраняем начальную позицию
+    local initialPos = humanoidRootPart.Position
     
-    -- Отслеживание остановки анимации
     local stopConnection
     stopConnection = animationTrack.Stopped:Connect(function()
         isAnimationPlaying = false
     end)
     
     for i = 1, Config.maxTeleports do
-        -- Проверяем, играет ли анимация и не вошли ли в последние 0.1 секунды
         local elapsedTime = tick() - startTime
-        if not isAnimationPlaying or not animationTrack.IsPlaying or elapsedTime > (animationLength - Config.stopBeforeAnimationEnd) then
+        if not _G.isScriptEnabled or not isAnimationPlaying or not animationTrack.IsPlaying or elapsedTime > (animationLength - Config.stopBeforeAnimationEnd) then
             break
         end
         
-        humanoidRootPart.Anchored = true -- Фиксируем персонажа
-        local randomPos = getRandomPositionInPolygon(initialPos) -- Используем начальную позицию
+        humanoidRootPart.Anchored = true
+        local randomPos = getRandomPositionInPolygon(initialPos)
         local currentPos = humanoidRootPart.Position
         local distance = (randomPos - currentPos).Magnitude
-        local tweenTime = distance / Config.moveSpeed -- Время = расстояние / скорость
+        local tweenTime = distance / Config.moveSpeed
         
-        -- Проверяем, не превысит ли твин оставшееся время до 0.1 секунды до конца анимации
         if (elapsedTime + tweenTime) > (animationLength - Config.stopBeforeAnimationEnd) then
             humanoidRootPart.Anchored = false
             break
         end
         
-        local tweenInfo = TweenInfo.new(
-            tweenTime,
-            Enum.EasingStyle.Linear,
-            Enum.EasingDirection.InOut,
-            0,
-            false
-        )
-        
+        local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false)
         local tween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = CFrame.new(randomPos)})
         tween:Play()
         
-        -- Ожидаем завершения твина, проверяя состояние анимации
         local startTweenTime = tick()
         while tick() - startTweenTime < tweenTime do
-            if not isAnimationPlaying or not animationTrack.IsPlaying or (tick() - startTime) > (animationLength - Config.stopBeforeAnimationEnd) then
-                tween:Cancel() -- Отменяем твин, если анимация остановилась или вошли в последние 0.1 секунды
+            if not _G.isScriptEnabled or not isAnimationPlaying or not animationTrack.IsPlaying or (tick() - startTime) > (animationLength - Config.stopBeforeAnimationEnd) then
+                tween:Cancel()
                 humanoidRootPart.Anchored = false
                 if stopConnection.Connected then
                     stopConnection:Disconnect()
@@ -157,11 +128,10 @@ local function moveToRandomPositions(animationTrack)
         
         humanoidRootPart.Anchored = false
         
-        -- Пауза только если анимация всё ещё играет и не в последние 0.1 секунды
-        if isAnimationPlaying and animationTrack.IsPlaying and (tick() - startTime) <= (animationLength - Config.stopBeforeAnimationEnd) then
+        if _G.isScriptEnabled and isAnimationPlaying and animationTrack.IsPlaying and (tick() - startTime) <= (animationLength - Config.stopBeforeAnimationEnd) then
             local pauseStart = tick()
             while tick() - pauseStart < Config.pauseTime do
-                if not isAnimationPlaying or not animationTrack.IsPlaying or (tick() - startTime) > (animationLength - Config.stopBeforeAnimationEnd) then
+                if not _G.isScriptEnabled or not isAnimationPlaying or not animationTrack.IsPlaying or (tick() - startTime) > (animationLength - Config.stopBeforeAnimationEnd) then
                     if stopConnection.Connected then
                         stopConnection:Disconnect()
                     end
@@ -174,42 +144,16 @@ local function moveToRandomPositions(animationTrack)
         end
     end
     
-    -- Очистка соединения
     if stopConnection.Connected then
         stopConnection:Disconnect()
     end
 end
 
--- Создание UI для кнопки
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = player:WaitForChild("PlayerGui")
-screenGui.ResetOnSpawn = false
-screenGui.Name = "TeleportScriptGui"
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 50)
-button.Position = UDim2.new(0, 10, 0, 10)
-button.Text = "Disable Script"
-button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Parent = screenGui
-
--- Переменная для отслеживания состояния скрипта
-local isScriptEnabled = true
-
 -- Отслеживание анимаций
 local animator = humanoid:WaitForChild("Animator")
 local connection
 connection = animator.AnimationPlayed:Connect(function(animationTrack)
-    if isScriptEnabled and animationTrack.Animation.AnimationId == "rbxassetid://12273188754" then
+    if _G.isScriptEnabled and animationTrack.Animation.AnimationId == "rbxassetid://12273188754" then
         moveToRandomPositions(animationTrack)
     end
-end)
-
--- Обработка нажатия кнопки
-button.MouseButton1Click:Connect(function()
-    isScriptEnabled = false -- Отключаем выполнение скрипта
-    connection:Disconnect() -- Отключаем отслеживание анимаций
-    screenGui:Destroy() -- Удаляем интерфейс
-    print("Script and UI disabled")
 end)
