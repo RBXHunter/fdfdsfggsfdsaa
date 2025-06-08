@@ -32,6 +32,7 @@ local function stopBoostLoop()
 end
 
 local function playRunAnimation()
+    if not _G.isScriptEnabled then return end
     for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
         track:Stop()
     end
@@ -63,7 +64,7 @@ local function playRunAnimation()
 
     stopMonitor()
     monitorConnection = RunService.Heartbeat:Connect(function()
-        if not runAnimTrack or not runAnimTrack.IsPlaying then
+        if not _G.isScriptEnabled or not runAnimTrack or not runAnimTrack.IsPlaying then
             stopMonitor()
             return
         end
@@ -74,10 +75,11 @@ local function playRunAnimation()
 end
 
 local function startRunning()
+    if not _G.isScriptEnabled then return end
     playRunAnimation()
     stopBoostLoop()
     boostConnection = RunService.Heartbeat:Connect(function()
-        if holding then
+        if _G.isScriptEnabled and holding then
             humanoid.WalkSpeed = 16 + RUN_SPEED_BOOST
         end
     end)
@@ -91,18 +93,21 @@ local function stopRunning()
         runAnimTrack:Destroy()
         runAnimTrack = nil
     end
-    humanoid.WalkSpeed = 16
+    humanoid.WalkSpeed = 36
 end
 
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
+local inputBeganConnection
+inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gpe)
+    if not _G.isScriptEnabled or gpe then return end
     if input.KeyCode == Enum.KeyCode.Z and not holding then
         holding = true
         startRunning()
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+local inputEndedConnection
+inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+    if not _G.isScriptEnabled then return end
     if input.KeyCode == Enum.KeyCode.Z then
         holding = false
         stopRunning()
