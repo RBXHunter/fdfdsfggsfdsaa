@@ -5,26 +5,24 @@ local CONFIG = {
     OriginalAnimToReplace = "rbxassetid://12351854556",
     ReplacementAnim = "rbxassetid://17140902079",
     ReplacementTime = 2,
-
-    OriginalAnimToReplace2 = "rbxassetid://13813955149", -- бросок мусорки
+    OriginalAnimToReplace2 = "rbxassetid://13813955149",
     ReplacementAnim2 = "rbxassetid://79761806706382",
     ReplacementTime2 = 2,
     ReplacementSpeed2 = 1.0,
-
-    OriginalAnimToReplace3 = "rbxassetid://13814919604", -- подъём мусорки
+    OriginalAnimToReplace3 = "rbxassetid://13814919604",
     ReplacementAnim3 = "rbxassetid://79761806706382",
     ReplacementTime3 = 0.5,
     ReplacementSpeed3 = 1.5,
 }
 
 local function replaceAnimation(track, animator, replacementId, replacementTime, replacementSpeed, startFromEnd)
+    if not _G.isScriptEnabled then return end
     track:Stop()
     local newAnim = Instance.new("Animation")
     newAnim.AnimationId = replacementId
     local newTrack = animator:LoadAnimation(newAnim)
     newTrack:Play()
 
-    -- Ждём загрузки анимации
     local waitStart = tick()
     while newTrack.Length == 0 and tick() - waitStart < 2 do
         task.wait(0.1)
@@ -39,7 +37,7 @@ local function replaceAnimation(track, animator, replacementId, replacementTime,
     end
 
     task.delay(replacementTime, function()
-        if newTrack.IsPlaying then
+        if _G.isScriptEnabled and newTrack.IsPlaying then
             newTrack:Stop()
         end
         newAnim:Destroy()
@@ -50,15 +48,15 @@ local function onCharacterAdded(character)
     local humanoid = character:WaitForChild("Humanoid")
     local animator = humanoid:WaitForChild("Animator")
 
-    humanoid.AnimationPlayed:Connect(function(track)
+    local connection
+    connection = humanoid.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId
         if animId == CONFIG.OriginalAnimToReplace then
             replaceAnimation(track, animator, CONFIG.ReplacementAnim, CONFIG.ReplacementTime)
         elseif animId == CONFIG.OriginalAnimToReplace2 then
-            -- Бросок мусорки — старт с последней секунды
             replaceAnimation(track, animator, CONFIG.ReplacementAnim2, CONFIG.ReplacementTime2, CONFIG.ReplacementSpeed2, true)
         elseif animId == CONFIG.OriginalAnimToReplace3 then
-            -- Подъём мусорки — старт с начала
             replaceAnimation(track, animator, CONFIG.ReplacementAnim3, CONFIG.ReplacementTime3, CONFIG.ReplacementSpeed3)
         end
     end)
