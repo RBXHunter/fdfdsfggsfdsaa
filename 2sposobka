@@ -28,39 +28,50 @@ local function isFalling(h)
 end
 
 local function transitionHipHeight(h, target, duration)
+    if not _G.isScriptEnabled then return end
     local initial = h.HipHeight
     local elapsed = 0
     while elapsed < duration do
         elapsed += RunService.Heartbeat:Wait()
         local alpha = elapsed / duration
-        if not isFalling(h) then
-            h.HipHeight = initial + (target - initial) * alpha
+        if not _G.isScriptEnabled or isFalling(h) then
+            return
         end
+        h.HipHeight = initial + (target - initial) * alpha
     end
-    if not isFalling(h) then
-        h.HipHeight = target
+    if not _G.isScriptEnabled or isFalling(h) then
+        return
     end
+    h.HipHeight = target
 end
 
 local function applyPull(track, h)
+    if not _G.isScriptEnabled then return end
     local root = h.Parent:FindFirstChild("HumanoidRootPart")
     if not root then optionalWarn("No HumanoidRootPart found") return end
 
     local alive = true
-    h.Died:Connect(function() alive = false end)
+    local diedConnection
+    diedConnection = h.Died:Connect(function() alive = false end)
 
     local startTime = tick()
     local len = track.Length or 0
     local conn
     conn = RunService.Heartbeat:Connect(function()
-        if not alive or not track.IsPlaying then
+        if not _G.isScriptEnabled or not alive or not track.IsPlaying then
             root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             conn:Disconnect()
+            if diedConnection.Connected then
+                diedConnection:Disconnect()
+            end
             return
         end
         if tick() - startTime >= len - CONFIG.DisableBeforeEndPull then
             root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             conn:Disconnect()
+            if diedConnection.Connected then
+                diedConnection:Disconnect()
+            end
             return
         end
         local cam = workspace.CurrentCamera
@@ -73,26 +84,26 @@ local function applyPull(track, h)
 end
 
 local function setupHipHeight(humanoid)
-    humanoid.AnimationPlayed:Connect(function(track)
+    local connection
+    connection = humanoid.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId
 
         if animId:find("12296113986") then
-            -- Запуск pull независимо
             applyPull(track, humanoid)
 
-            -- Отдельно hipHeight трансформаци
             local function isTrackPlaying()
                 return track and track.IsPlaying
             end
 
             task.delay(CONFIG.DelayBeforeHipHeightChange, function()
-                if humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
+                if _G.isScriptEnabled and humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
                     transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
                 end
             end)
 
             task.delay(track.Length - CONFIG.HipHeightResetBeforeEnd, function()
-                if humanoid and humanoid.Parent then
+                if _G.isScriptEnabled and humanoid and humanoid.Parent then
                     transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
                 end
             end)
@@ -109,4 +120,3 @@ if player.Character then
     onCharacterAdded(player.Character)
 end
 player.CharacterAdded:Connect(onCharacterAdded)
--- 1
