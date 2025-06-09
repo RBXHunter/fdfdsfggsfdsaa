@@ -1,16 +1,14 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local CONFIG = {
-    TargetHipHeight = 200,
-    ResetHipHeight = 0,
-    HipHeightResetBeforeEnd = 0.5,
-    DelayBeforeHipHeightChange = 0.5,
-    TransitionTime = 0.3,
-    TransitionTime2 = 0,
-    EnableWarnings = false,
+    LiftOffset = 100, -- Насколько вверх поднимать
+    LiftTime = 0.3,   -- Время твина
+    ResetTime = 0.3,  -- Время твина вниз
     ForceSpeedPull = 500,
     DisableBeforeEndPull = 0.5,
+    EnableWarnings = false,
 }
 
 local player = Players.LocalPlayer
@@ -29,22 +27,20 @@ local function isFalling(h)
         or state == Enum.HumanoidStateType.FallingDown
 end
 
-local function transitionHipHeight(h, target, duration)
-    if not _G.isScriptEnabled then return end
-    local initial = h.HipHeight
-    local elapsed = 0
-    while elapsed < duration do
-        elapsed += RunService.Heartbeat:Wait()
-        local alpha = elapsed / duration
-        if not _G.isScriptEnabled or isFalling(h) then
-            return
-        end
-        h.HipHeight = initial + (target - initial) * alpha
-    end
-    if not _G.isScriptEnabled or isFalling(h) then
-        return
-    end
-    h.HipHeight = target
+local function tweenLiftUpAndDown(root)
+    if not root or not root:IsA("BasePart") then return end
+
+    local upGoal = { Position = root.Position + Vector3.new(0, CONFIG.LiftOffset, 0) }
+    local downGoal = { Position = root.Position }
+
+    local upTween = TweenService:Create(root, TweenInfo.new(CONFIG.LiftTime, Enum.EasingStyle.Sine), upGoal)
+    local downTween = TweenService:Create(root, TweenInfo.new(CONFIG.ResetTime, Enum.EasingStyle.Sine), downGoal)
+
+    upTween:Play()
+    upTween.Completed:Connect(function()
+        task.wait(0.1)
+        downTween:Play()
+    end)
 end
 
 local function applyPull(track, h)
@@ -88,7 +84,7 @@ local function applyPull(track, h)
     end)
 end
 
-local function setupHipHeight(humanoid)
+local function setupEffects(humanoid)
     humanoid.AnimationPlayed:Connect(function(track)
         print("[DEBUG] AnimationPlayed:", track.Animation.AnimationId)
         if not _G.isScriptEnabled then return end
@@ -118,16 +114,18 @@ local function setupHipHeight(humanoid)
 
         print("[DEBUG] After override, animId:", animId)
         if animId:find("12296113986") then
-            print("[DEBUG] applyPull and HipHeight for", animId)
+            print("[DEBUG] applyPull and TweenUp for", animId)
             applyPull(track, humanoid)
-            -- Добавьте здесь, если нужно, вызовы transitionHipHeight или другой логики
+
+            local root = humanoid.Parent:FindFirstChild("HumanoidRootPart")
+            tweenLiftUpAndDown(root)
         end
     end)
 end
 
 local function onCharacterAdded(character)
     humanoid = character:WaitForChild("Humanoid")
-    setupHipHeight(humanoid)
+    setupEffects(humanoid)
 end
 
 if player.Character then
