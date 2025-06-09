@@ -104,7 +104,7 @@ local function setupHipHeight(humanoid)
         if overrideAnimation("12296882427", "12463072679") then return end
         if overrideAnimation("12296113986", "12467789963") then return end
 
-        if animId:find("12296113986") then
+        if animId:find("12467789963") then
             applyPull(track, humanoid)
 
             local function isTrackPlaying()
