@@ -1,210 +1,164 @@
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------   функция как работает
-        LocalPlayer = game.Players.LocalPlayer
-        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        Backpack = LocalPlayer:WaitForChild("Backpack")
-        function Skill(SkillName, callback, Cooldown, ToggleCooldown)
-            local Skill = Instance.new("Tool")
-            Skill.Name = SkillName
-            Skill.RequiresHandle = false
-            Skill.Parent = Backpack
-            Skill:SetAttribute("Cooldown", Cooldown)
-            local SkillHotbar
-            local State
-            Cooldown = Cooldown or 0
-            local CooldownGui = LocalPlayer.PlayerGui.Hotbar.Backpack.LocalScript.Cooldown:Clone()
-            if Backpack:GetAttribute("CustomSkills") == nil then
-                Backpack:SetAttribute("CustomSkills", -1)
-            end
-            Backpack:SetAttribute("CustomSkills", Backpack:GetAttribute("CustomSkills") + 1)
-            for HotbarNum = 1, 13 do
-                local HotbarToolName = LocalPlayer.PlayerGui.Hotbar.Backpack.Hotbar[tostring(HotbarNum)].Base.ToolName.Text
-                if HotbarToolName == Skill.Name then
-                    SkillHotbar = LocalPlayer.PlayerGui.Hotbar.Backpack.Hotbar[tostring(HotbarNum)].Base
-                    Skill.Name = Skill.Name.."ID:"..tostring(Backpack:GetAttribute("CustomSkills"))
-                    LocalPlayer.PlayerGui.Hotbar.Backpack.Hotbar[tostring(HotbarNum)].Base.ToolName.Text = HotbarToolName
-                end
-            end
-            CooldownGui.Parent = SkillHotbar.Parent
-            CooldownGui.Size = UDim2.new(1, 0, 0, 0)
-            if Backpack:GetAttribute("CustomSkills") == nil then
-                Backpack:SetAttribute("CustomSkills", -1)
-            end
-            Backpack:SetAttribute("CustomSkills", Backpack:GetAttribute("CustomSkills") + 1)
-            local SkillFunction = SkillHotbar.Activated:Connect(function()
-                if not IPlacedThisForSpacing then
-                    SkillHotbar.Overlay.Visible = false
-                    if Cooldown ~= 1234 and CooldownGui.Size == UDim2.new(1, 0, 0, 0) then
-                        CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                        local CooldownAnim = game:GetService("TweenService"):Create(CooldownGui, TweenInfo.new(Cooldown, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-                            Size = UDim2.new(1, 0, 0, 0),
-                        }):Play()
-                        callback()
-                    elseif Cooldown == 1234 then
-                        if not State and CooldownGui.Size == UDim2.new(1, 0, 0, 0) then
-                            State = true
-                            CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                            callback()
-                        elseif State and CooldownGui.Size == UDim2.new(1, 0, -1, 0) then
-                            State = false
-                            ToggleCooldown = ToggleCooldown or 0.2
-                            CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                            local CooldownAnim = game:GetService("TweenService"):Create(CooldownGui, TweenInfo.new(ToggleCooldown, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-                                Size = UDim2.new(1, 0, 0, 0),
-                            }):Play()
-                            callback()
-                        end
-                    end
-                end
-            end)
-            local function IntToKey(int)
-                local keys = {Enum.KeyCode.Zero, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine}
-                return keys[int + 1]
-            end
-            local SkillFunction2 = game:GetService("UserInputService").InputBegan:Connect(function(input)
-                if input.KeyCode == IntToKey(tostring(SkillHotbar.Parent))then
-                    SkillHotbar.Overlay.Visible = false
-                    if Cooldown ~= 1234 and CooldownGui.Size == UDim2.new(1, 0, 0, 0) then
-                        CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                        local CooldownAnim = game:GetService("TweenService"):Create(CooldownGui, TweenInfo.new(Cooldown, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-                            Size = UDim2.new(1, 0, 0, 0),
-                        }):Play()
-                        callback()
-                    elseif Cooldown == 1234 then
-                        if not State and CooldownGui.Size == UDim2.new(1, 0, 0, 0) then
-                            State = true
-                            CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                            callback()
-                        elseif State and CooldownGui.Size == UDim2.new(1, 0, -1, 0) then
-                            State = false
-                            ToggleCooldown = ToggleCooldown or 0.2
-                            CooldownGui.Size = UDim2.new(1, 0, -1, 0)
-                            local CooldownAnim = game:GetService("TweenService"):Create(CooldownGui, TweenInfo.new(ToggleCooldown, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-                                Size = UDim2.new(1, 0, 0, 0),
-                            }):Play()
-                            callback()
-                        end
-                    end
-                end
-            end)
-            local SkillDelete = Skill.AncestryChanged:Connect(function(child, parent)
-                if parent == nil then
-                    SkillFunction:Disconnect()
-                    SkillFunction2:Disconnect()
-                    PlayerDied:Disconnect()
-                elseif parent == workspace.Live:FindFirstChild(LocalPlayer.Name) then
-                    task.wait()
-                    Skill.Parent = Backpack
-                end
-            end)
-            local PlayerDied = Character.Humanoid.Died:Once(function()
-                SkillFunction:Disconnect()
-                SkillFunction2:Disconnect()
-                SkillDelete:Disconnect()
-            end)
-            return Skill
-        end
-
-
+-- 🧠 Получаем необходимые сервисы
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- 🧍 Получаем локального игрока и персонажа
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Backpack = LocalPlayer:WaitForChild("Backpack")
 local Humanoid = Character:WaitForChild("Humanoid")
 
+-- 🕺 Создаем анимацию
 local Anim = Instance.new("Animation")
 Anim.AnimationId = "rbxassetid://14659143045"
-
 local track = Humanoid:LoadAnimation(Anim)
 
+-- 🔄 Управление состоянием анимации
 local toggleState = false
 
-function sidewaysDashTrue()
-    if toggleState then return end
-    toggleState = true
-
-    -- Запускаем анимацию с высокой скоростью 100
-    track:Play(10, 10, 100)
+local function sidewaysDashTrue()
+	if toggleState then return end
+	toggleState = true
 	track.Looped = true
+	track:Play(1, 1, 100)
 end
 
-function sidewaysDashFalse()
-    if not toggleState then return end
-    toggleState = false
+local function sidewaysDashFalse()
+	if not toggleState then return end
+	toggleState = false
+	local fadeTime = 0.5
+	local startWeight = track.WeightCurrent or 1
+	local startTime = tick()
 
-    -- Постепенно уменьшаем вес анимации до 0 (ручной fade-out)
-    local fadeTime = 0.5
-    local startWeight = track.WeightCurrent or 1
-    local startTime = tick()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local alpha = math.clamp((tick() - startTime) / fadeTime, 0, 1)
+		local newWeight = (1 - alpha) * startWeight
+		pcall(function() track:AdjustWeight(newWeight) end)
 
-    local conn
-    conn = game:GetService("RunService").RenderStepped:Connect(function()
-        local alpha = math.clamp((tick() - startTime) / fadeTime, 0, 1)
-        local newWeight = (1 - alpha) * startWeight
-        pcall(function() track:AdjustWeight(newWeight) end)
-
-        if alpha >= 1 then
-            conn:Disconnect()
-            track:Stop()
-        end
-    end)
+		if alpha >= 1 then
+			conn:Disconnect()
+			track:Stop()
+		end
+	end)
 end
 
+-- 🧪 Создание функции Skill
+function Skill(SkillName, callback, Cooldown, ToggleCooldown)
+	local SkillTool = Instance.new("Tool")
+	SkillTool.Name = SkillName
+	SkillTool.RequiresHandle = false
+	SkillTool.Parent = Backpack
 
--- Пример переключения скилла
-local SkillActivated = false
-TestSkill2 = Skill("Sideways Dash", function()
-    SkillActivated = not SkillActivated
-    if SkillActivated then
-        sidewaysDashTrue()
-    else
-        sidewaysDashFalse()
-    end
-end, 1234, 1)ackpack
-                end
-            end)
-            local PlayerDied = Character.Humanoid.Died:Once(function()
-                SkillFunction:Disconnect()
-                SkillFunction2:Disconnect()
-                SkillDelete:Disconnect()
-            end)
-            return Skill
-        end
+	Cooldown = Cooldown or 0
+	ToggleCooldown = ToggleCooldown or 0.2
 
+	-- 🔎 Поиск Hotbar GUI
+	local HotbarFolder = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
+	if not HotbarFolder then
+		warn("Hotbar GUI не найден!")
+		return
+	end
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
+	local SkillHotbar, SkillSlot
+	for i = 1, 13 do
+		local slot = HotbarFolder.Backpack.Hotbar:FindFirstChild(tostring(i))
+		if slot then
+			local toolNameText = slot.Base.ToolName.Text
+			if toolNameText == SkillName then
+				SkillHotbar = slot.Base
+				SkillSlot = i
+				break
+			end
+		end
+	end
 
-local Anim = Instance.new("Animation")
-Anim.AnimationId = "rbxassetid://14659143045"
+	if not SkillHotbar then
+		warn("Не удалось найти слот для навыка в хотбаре")
+		return
+	end
 
-local track = Humanoid:LoadAnimation(Anim)
+	-- 💡 Клонируем GUI кулдауна
+	local CooldownGui = HotbarFolder.Backpack.LocalScript:FindFirstChild("Cooldown")
+	if not CooldownGui then
+		warn("Cooldown GUI не найден")
+		return
+	end
 
-local toggleState = false
+	CooldownGui = CooldownGui:Clone()
+	CooldownGui.Size = UDim2.new(1, 0, 0, 0)
+	CooldownGui.Parent = SkillHotbar.Parent
 
-function sidewaysDashTrue()
-    if toggleState then return end
-    toggleState = true
+	-- ⚡ Функция активации
+	local SkillActivated = false
+	local State
 
-    -- Запускаем анимацию с высокой скоростью 100
-    track:Play(0, 1, 100)
+	local function onActivate()
+		SkillHotbar.Overlay.Visible = false
+		if Cooldown ~= 1234 and CooldownGui.Size == UDim2.new(1, 0, 0, 0) then
+			CooldownGui.Size = UDim2.new(1, 0, -1, 0)
+			TweenService:Create(CooldownGui, TweenInfo.new(Cooldown, Enum.EasingStyle.Linear), {
+				Size = UDim2.new(1, 0, 0, 0)
+			}):Play()
+			callback()
+		elseif Cooldown == 1234 then
+			if not State then
+				State = true
+				CooldownGui.Size = UDim2.new(1, 0, -1, 0)
+				callback()
+			else
+				State = false
+				CooldownGui.Size = UDim2.new(1, 0, -1, 0)
+				TweenService:Create(CooldownGui, TweenInfo.new(ToggleCooldown, Enum.EasingStyle.Linear), {
+					Size = UDim2.new(1, 0, 0, 0)
+				}):Play()
+				callback()
+			end
+		end
+	end
+
+	local SkillFunction = SkillTool.Activated:Connect(onActivate)
+
+	local SkillFunction2 = UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then return end
+		local keys = {
+			[0] = Enum.KeyCode.Zero, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four,
+			Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine
+		}
+		if keys[SkillSlot] and input.KeyCode == keys[SkillSlot] then
+			onActivate()
+		end
+	end)
+
+	local SkillDelete = SkillTool.AncestryChanged:Connect(function(_, parent)
+		if parent == nil then
+			SkillFunction:Disconnect()
+			SkillFunction2:Disconnect()
+			PlayerDied:Disconnect()
+		elseif parent == workspace:FindFirstChild("Live") and parent:FindFirstChild(LocalPlayer.Name) then
+			task.wait()
+			SkillTool.Parent = Backpack
+		end
+	end)
+
+	local PlayerDied = Humanoid.Died:Once(function()
+		SkillFunction:Disconnect()
+		SkillFunction2:Disconnect()
+		SkillDelete:Disconnect()
+	end)
+
+	return SkillTool
 end
 
-function sidewaysDashFalse()
-    if not toggleState then return end
-    toggleState = false
-
-    -- Останавливаем анимацию
-    track:Stop()
-end
-
--- Пример переключения скилла
-local SkillActivated = false
-TestSkill2 = Skill("Sideways Dash", function()
-    SkillActivated = not SkillActivated
-    if SkillActivated then
-        sidewaysDashTrue()
-    else
-        sidewaysDashFalse()
-    end
+-- 🧪 Применяем навык "Sideways Dash"
+local skillToggle = false
+local TestSkill2 = Skill("Sideways Dash", function()
+	skillToggle = not skillToggle
+	if skillToggle then
+		sidewaysDashTrue()
+	else
+		sidewaysDashFalse()
+	end
 end, 1234, 1)
