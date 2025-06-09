@@ -1,0 +1,40 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local animator = humanoid:WaitForChild("Animator")
+
+local animationId = "rbxassetid://12273188754"
+local soundId = "rbxassetid://5803928667"
+
+animator.AnimationPlayed:Connect(function(track)
+	if not _G.isScriptEnabled then return end
+
+	if track.Animation.AnimationId == animationId then
+		local sound = Instance.new("Sound")
+		sound.SoundId = soundId
+		sound.Volume = 100
+		sound.TimePosition = 0.4 -- старт звука с 0.4 сек
+		sound.Looped = false
+		sound.Parent = character:FindFirstChild("Head") or character
+		sound:Play()
+
+		-- Если скрипты отключены после старта — останавливаем звук
+		local conn
+		conn = game:GetService("RunService").Heartbeat:Connect(function()
+			if not _G.isScriptEnabled then
+				if sound and sound.IsPlaying then
+					sound:Stop()
+					sound:Destroy()
+				end
+				if conn then conn:Disconnect() end
+			end
+		end)
+
+		-- Автоматическое удаление звука после окончания
+		sound.Ended:Connect(function()
+			if conn then conn:Disconnect() end
+			sound:Destroy()
+		end)
+	end
+end)
