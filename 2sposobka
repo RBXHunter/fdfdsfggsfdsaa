@@ -90,16 +90,26 @@ local function setupHipHeight(humanoid)
         local animId = track.Animation.AnimationId
 
         local function overrideAnimation(originalId, replacementId)
-            if animId:find(originalId) then
-                track:Stop() -- Останавливаем оригинальную анимацию
-                local anim = Instance.new("Animation")
-                anim.AnimationId = "rbxassetid://" .. replacementId
-                local newTrack = humanoid:LoadAnimation(anim)
-                newTrack:Play()
-                return true
-            end
-            return false
+        if animId:find(originalId) then
+        track:Stop()
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. replacementId
+        local newTrack = humanoid:LoadAnimation(anim)
+
+        -- Если это нужная анимация, установить TimePosition
+        if replacementId == "12467789963" then
+            newTrack.TimePosition = 2
         end
+
+        newTrack:Play()
+
+        -- Если нужно, можно добавить дополнительную логику здесь
+
+        return true
+    end
+    return false
+end
+
 
         if overrideAnimation("12296882427", "12463072679") then return end
         if overrideAnimation("12296113986", "12467789963") then return end
