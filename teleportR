@@ -1,0 +1,80 @@
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
+
+local TELEPORT_DISTANCE = 25
+local TELEPORT_BACK_DISTANCE = 1
+local soundId = "rbxassetid://123044239731998" -- Звук телепорта
+
+local function playTeleportSound()
+    local sound = Instance.new("Sound")
+    sound.SoundId = soundId
+    sound.Volume = 100
+    sound.Parent = humanoidRootPart
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+-- Найти ближайшего персонажа с живым Humanoid кроме себя
+local function findNearestTarget()
+    local nearestCharacter = nil
+    local nearestDistance = math.huge
+
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local otherCharacter = otherPlayer.Character
+            if otherCharacter then
+                local otherHumanoid = otherCharacter:FindFirstChild("Humanoid")
+                local otherHRP = otherCharacter:FindFirstChild("HumanoidRootPart")
+                if otherHumanoid and otherHRP and otherHumanoid.Health > 0 then
+                    local dist = (otherHRP.Position - humanoidRootPart.Position).Magnitude
+                    if dist < nearestDistance then
+                        nearestDistance = dist
+                        nearestCharacter = otherCharacter
+                    end
+                end
+            end
+        end
+    end
+    return nearestCharacter
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.R then
+        local moveVector = humanoid.MoveDirection
+
+        if moveVector.Magnitude > 0 then
+            -- Телепорт вперед на TELEPORT_DISTANCE студов
+            local teleportPos = humanoidRootPart.Position + moveVector.Unit * TELEPORT_DISTANCE
+            humanoidRootPart.CFrame = CFrame.new(teleportPos, teleportPos + humanoidRootPart.CFrame.LookVector)
+            playTeleportSound()
+        else
+            -- Телепорт за спину ближайшему с поворотом камеры
+            local target = findNearestTarget()
+            if target then
+                local targetHRP = target:FindFirstChild("HumanoidRootPart")
+                if targetHRP then
+                    -- Позиция за спиной цели
+                    local backCFrame = targetHRP.CFrame * CFrame.new(0, 0, TELEPORT_BACK_DISTANCE)
+                    humanoidRootPart.CFrame = backCFrame
+
+                    -- Поворачиваем камеру так, чтобы смотреть параллельно спине цели (в ту же сторону, куда смотрит цель)
+                    -- Камера должна смотреть в ту же сторону, куда смотрит HumanoidRootPart цели (в сторону спины)
+                    local lookVector = targetHRP.CFrame.LookVector
+                    local camCFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + lookVector)
+                    camera.CFrame = camCFrame
+
+                    playTeleportSound()
+                end
+            end
+        end
+    end
+end)
