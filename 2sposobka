@@ -108,6 +108,26 @@ local function setupHipHeight(humanoid)
         end
 
         if overrideAnimation("12296882427", "12463072679") then return end
+
+        if animId:find("12296113986") then
+            applyPull(track, humanoid)
+
+            local function isTrackPlaying()
+                return track and track.IsPlaying
+            end
+
+            task.delay(CONFIG.DelayBeforeHipHeightChange, function()
+                if _G.isScriptEnabled and humanoid and humanoid.Parent and isTrackPlaying() and not isFalling(humanoid) then
+                    transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
+                end
+            end)
+
+            task.delay(track.Length - CONFIG.HipHeightResetBeforeEnd, function()
+                if _G.isScriptEnabled and humanoid and humanoid.Parent then
+                    transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
+                end
+            end)
+        end
     end)
 end
 
