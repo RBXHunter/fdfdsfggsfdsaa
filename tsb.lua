@@ -23,7 +23,6 @@ local scripts = {
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/2sposobka",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/Runbost",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/anims",
-    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/Sounds",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/Teleport",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/sidewaysdash"
 }
