@@ -89,6 +89,21 @@ local function setupHipHeight(humanoid)
         if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId
 
+        local function overrideAnimation(originalId, replacementId)
+            if animId:find(originalId) then
+                track:Stop() -- Останавливаем оригинальную анимацию
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://" .. replacementId
+                local newTrack = humanoid:LoadAnimation(anim)
+                newTrack:Play()
+                return true
+            end
+            return false
+        end
+
+        if overrideAnimation("18179181663", "12463072679") then return end
+        if overrideAnimation("18182425133", "12467789963") then return end
+
         if animId:find("12296113986") then
             applyPull(track, humanoid)
 
