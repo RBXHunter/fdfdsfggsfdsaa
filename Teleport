@@ -134,23 +134,16 @@ local function playAnimation()
     animation.AnimationId = ANIM_ID
 
     local track = humanoid:LoadAnimation(animation)
-    track.Priority = Enum.AnimationPriority.Action
+    track.Priority = Enum.AnimationPriority.Action4 -- Наивысший допустимый приоритет
     track:Play()
-	track.TimePosition = 4
-    -- (не обязательно) начать воспроизведение с 0 секунды
-    -- или выставить другую TimePosition, если нужно
-    -- track.TimePosition = 0
+    track.TimePosition = 4
 
-    -- Остановить через 3 секунды
     task.delay(1, function()
         if track.IsPlaying then
             track:Stop()
         end
     end)
 end
-
-
-
 
 
 
