@@ -1,6 +1,5 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 
 local CONFIG = {
     TargetHipHeight = 100,
@@ -14,28 +13,8 @@ local CONFIG = {
     DisableBeforeEndPull = 0.5,
 }
 
--- Переменная для управления работой скрипта
-_G.isScriptEnabled = _G.isScriptEnabled ~= false
-
--- UI для отключения скрипта
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SposobkaGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 50)
-button.Position = UDim2.new(0, 120, 0, 10)
-button.Text = "Kill Script"
-button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Parent = screenGui
-
-button.MouseButton1Click:Connect(function()
-    _G.isScriptEnabled = false
-    screenGui:Destroy()
-    print("Sposobka script disabled")
-end)
+local player = Players.LocalPlayer
+local humanoid
 
 local function optionalWarn(msg)
     if CONFIG.EnableWarnings then
@@ -51,14 +30,15 @@ end
 local function transitionHipHeight(h, target, duration)
     local initial = h.HipHeight
     local elapsed = 0
-    while elapsed < duration and _G.isScriptEnabled do
+    while elapsed < duration do
+        if _G.isScriptEnabled == false then return end -- Проверка глобальной переменной
         elapsed += RunService.Heartbeat:Wait()
         local alpha = elapsed / duration
         if not isFalling(h) then
             h.HipHeight = initial + (target - initial) * alpha
         end
     end
-    if not isFalling(h) and _G.isScriptEnabled then
+    if not isFalling(h) then
         h.HipHeight = target
     end
 end
@@ -74,7 +54,7 @@ local function applyPull(track, h)
     local len = track.Length or 0
     local conn
     conn = RunService.Heartbeat:Connect(function()
-        if not _G.isScriptEnabled or not alive or not track.IsPlaying then
+        if _G.isScriptEnabled == false or not alive or not track.IsPlaying then
             root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             conn:Disconnect()
             return
@@ -95,7 +75,7 @@ end
 
 local function setupHipHeight(humanoid)
     humanoid.AnimationPlayed:Connect(function(track)
-        if not _G.isScriptEnabled then return end
+        if _G.isScriptEnabled == false then return end -- Проверка перед началом
 
         local animId = track.Animation.AnimationId
 
@@ -103,13 +83,15 @@ local function setupHipHeight(humanoid)
             applyPull(track, humanoid)
 
             task.delay(CONFIG.DelayBeforeHipHeightChange, function()
-                if _G.isScriptEnabled and humanoid and humanoid.Parent and track.IsPlaying and not isFalling(humanoid) then
+                if _G.isScriptEnabled == false then return end -- Проверка перед задержкой
+                if humanoid and humanoid.Parent and track.IsPlaying and not isFalling(humanoid) then
                     transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
                 end
             end)
 
             task.delay(track.Length - CONFIG.HipHeightResetBeforeEnd, function()
-                if _G.isScriptEnabled and humanoid and humanoid.Parent then
+                if _G.isScriptEnabled == false then return end -- Проверка перед сбросом
+                if humanoid and humanoid.Parent then
                     transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
                 end
             end)
@@ -118,8 +100,7 @@ local function setupHipHeight(humanoid)
 end
 
 local function onCharacterAdded(character)
-    if not _G.isScriptEnabled then return end
-    local humanoid = character:WaitForChild("Humanoid")
+    humanoid = character:WaitForChild("Humanoid")
     setupHipHeight(humanoid)
 end
 
