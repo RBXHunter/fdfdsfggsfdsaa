@@ -89,17 +89,24 @@ local function setupHipHeight(humanoid)
         if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId
 
-        local function overrideAnimation(originalId, replacementId)
+local function overrideAnimation(originalId, replacementId)
     if animId:find(originalId) then
         track:Stop()
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://" .. replacementId
         local newTrack = humanoid:LoadAnimation(anim)
+
+        -- Если это нужная анимация, замедляем её
+        if replacementId == "12467789963" then
+            newTrack.PlaybackSpeed = 0.5
+        end
+
         newTrack:Play()
         return true
     end
     return false
 end
+
 
 
         if overrideAnimation("12296882427", "12463072679") then return end
