@@ -9,7 +9,7 @@ local CONFIG = {
     TransitionTime = 0.3,
     TransitionTime2 = 0,
     EnableWarnings = false,
-    ForceSpeedPull = 600,
+    ForceSpeedPull = 500,
     DisableBeforeEndPull = 0.5,
 }
 
