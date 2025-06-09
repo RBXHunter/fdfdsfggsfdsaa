@@ -1,18 +1,41 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
 
 local CONFIG = {
-    LiftOffset = 100, -- Насколько вверх поднимать
-    LiftTime = 0.3,   -- Время твина
-    ResetTime = 0.3,  -- Время твина вниз
+    TargetHipHeight = 100,
+    ResetHipHeight = 0,
+    HipHeightResetBeforeEnd = 0.5,
+    DelayBeforeHipHeightChange = 1,
+    TransitionTime = 0.3,
+    TransitionTime2 = 0,
+    EnableWarnings = false,
     ForceSpeedPull = 500,
     DisableBeforeEndPull = 0.5,
-    EnableWarnings = false,
 }
 
-local player = Players.LocalPlayer
-local humanoid
+-- Переменная для управления работой скрипта
+_G.isScriptEnabled = _G.isScriptEnabled ~= false
+
+-- UI для отключения скрипта
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SposobkaGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 100, 0, 50)
+button.Position = UDim2.new(0, 120, 0, 10)
+button.Text = "Kill Script"
+button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Parent = screenGui
+
+button.MouseButton1Click:Connect(function()
+    _G.isScriptEnabled = false
+    screenGui:Destroy()
+    print("Sposobka script disabled")
+end)
 
 local function optionalWarn(msg)
     if CONFIG.EnableWarnings then
@@ -22,38 +45,30 @@ end
 
 local function isFalling(h)
     local state = h:GetState()
-    return state == Enum.HumanoidStateType.Freefall 
-        or state == Enum.HumanoidStateType.Jumping 
-        or state == Enum.HumanoidStateType.FallingDown
+    return state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.FallingDown
 end
 
-local function tweenLiftUpAndDown(root)
-    if not root or not root:IsA("BasePart") then return end
-
-    local upGoal = { Position = root.Position + Vector3.new(0, CONFIG.LiftOffset, 0) }
-    local downGoal = { Position = root.Position }
-
-    local upTween = TweenService:Create(root, TweenInfo.new(CONFIG.LiftTime, Enum.EasingStyle.Sine), upGoal)
-    local downTween = TweenService:Create(root, TweenInfo.new(CONFIG.ResetTime, Enum.EasingStyle.Sine), downGoal)
-
-    upTween:Play()
-    upTween.Completed:Connect(function()
-        task.wait(0.1)
-        downTween:Play()
-    end)
+local function transitionHipHeight(h, target, duration)
+    local initial = h.HipHeight
+    local elapsed = 0
+    while elapsed < duration and _G.isScriptEnabled do
+        elapsed += RunService.Heartbeat:Wait()
+        local alpha = elapsed / duration
+        if not isFalling(h) then
+            h.HipHeight = initial + (target - initial) * alpha
+        end
+    end
+    if not isFalling(h) and _G.isScriptEnabled then
+        h.HipHeight = target
+    end
 end
 
 local function applyPull(track, h)
-    if not _G.isScriptEnabled then return end
     local root = h.Parent:FindFirstChild("HumanoidRootPart")
-    if not root then 
-        optionalWarn("No HumanoidRootPart found") 
-        return 
-    end
+    if not root then optionalWarn("No HumanoidRootPart found") return end
 
     local alive = true
-    local diedConnection
-    diedConnection = h.Died:Connect(function() alive = false end)
+    h.Died:Connect(function() alive = false end)
 
     local startTime = tick()
     local len = track.Length or 0
@@ -62,17 +77,11 @@ local function applyPull(track, h)
         if not _G.isScriptEnabled or not alive or not track.IsPlaying then
             root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             conn:Disconnect()
-            if diedConnection.Connected then
-                diedConnection:Disconnect()
-            end
             return
         end
         if tick() - startTime >= len - CONFIG.DisableBeforeEndPull then
             root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             conn:Disconnect()
-            if diedConnection.Connected then
-                diedConnection:Disconnect()
-            end
             return
         end
         local cam = workspace.CurrentCamera
@@ -84,48 +93,34 @@ local function applyPull(track, h)
     end)
 end
 
-local function setupEffects(humanoid)
+local function setupHipHeight(humanoid)
     humanoid.AnimationPlayed:Connect(function(track)
-        print("[DEBUG] AnimationPlayed:", track.Animation.AnimationId)
         if not _G.isScriptEnabled then return end
+
         local animId = track.Animation.AnimationId
 
-        local function overrideAnimation(orig, repl)
-            if animId:find(orig) then
-                print("[DEBUG] overrideAnimation:", orig, "→", repl)
-                track:Stop()
-                local anim = Instance.new("Animation")
-                anim.AnimationId = "rbxassetid://" .. repl
-                local animator = humanoid:FindFirstChildOfClass("Animator")
-                if not animator then
-                    animator = Instance.new("Animator")
-                    animator.Parent = humanoid
-                end
-                local newTrack = animator:LoadAnimation(anim)
-                newTrack:Play()
-                return true
-            end
-            return false
-        end
-
-        if overrideAnimation("12296882427", "12463072679") then 
-            return 
-        end
-
-        print("[DEBUG] After override, animId:", animId)
         if animId:find("12296113986") then
-            print("[DEBUG] applyPull and TweenUp for", animId)
             applyPull(track, humanoid)
 
-            local root = humanoid.Parent:FindFirstChild("HumanoidRootPart")
-            tweenLiftUpAndDown(root)
+            task.delay(CONFIG.DelayBeforeHipHeightChange, function()
+                if _G.isScriptEnabled and humanoid and humanoid.Parent and track.IsPlaying and not isFalling(humanoid) then
+                    transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
+                end
+            end)
+
+            task.delay(track.Length - CONFIG.HipHeightResetBeforeEnd, function()
+                if _G.isScriptEnabled and humanoid and humanoid.Parent then
+                    transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
+                end
+            end)
         end
     end)
 end
 
 local function onCharacterAdded(character)
-    humanoid = character:WaitForChild("Humanoid")
-    setupEffects(humanoid)
+    if not _G.isScriptEnabled then return end
+    local humanoid = character:WaitForChild("Humanoid")
+    setupHipHeight(humanoid)
 end
 
 if player.Character then
