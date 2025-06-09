@@ -88,50 +88,26 @@ local function setupHipHeight(humanoid)
         if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId
 
-local function overrideAnimation(originalId, replacementId)
-    if animId:find(originalId) then
-        track:Stop()
-        local anim = Instance.new("Animation")
-        anim.AnimationId = "rbxassetid://" .. replacementId
+        local function overrideAnimation(originalId, replacementId)
+            if animId:find(originalId) then
+                track:Stop()
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://" .. replacementId
 
-        local animator = humanoid:FindFirstChildOfClass("Animator")
-        if not animator then
-            animator = Instance.new("Animator")
-            animator.Parent = humanoid
-        end
-
-        local newTrack = animator:LoadAnimation(anim)
-
-        if replacementId == "12467789963" then
-            newTrack:Play(0, 1, 0.5) -- Play with custom speed = 0.5
-        else
-            newTrack:Play()
-        end
-
-        -- Только если логика applyPull нужна для этой анимации
-        if replacementId == "12467789963" then
-            applyPull(newTrack, humanoid)
-
-            task.delay(CONFIG.DelayBeforeHipHeightChange, function()
-                if _G.isScriptEnabled and humanoid and humanoid.Parent and newTrack.IsPlaying and not isFalling(humanoid) then
-                    transitionHipHeight(humanoid, CONFIG.TargetHipHeight, CONFIG.TransitionTime)
+                local animator = humanoid:FindFirstChildOfClass("Animator")
+                if not animator then
+                    animator = Instance.new("Animator")
+                    animator.Parent = humanoid
                 end
-            end)
 
-            task.delay(newTrack.Length - CONFIG.HipHeightResetBeforeEnd, function()
-                if _G.isScriptEnabled and humanoid and humanoid.Parent then
-                    transitionHipHeight(humanoid, CONFIG.ResetHipHeight, CONFIG.TransitionTime2)
-                end
-            end)
+                local newTrack = animator:LoadAnimation(anim)
+                newTrack:Play()
+                return true
+            end
+            return false
         end
-
-        return true
-    end
-    return false
-end
 
         if overrideAnimation("12296882427", "12463072679") then return end
-        if overrideAnimation("12296113986", "12467789963") then return end
     end)
 end
 
