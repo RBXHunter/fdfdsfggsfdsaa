@@ -2,9 +2,9 @@
         LocalPlayer = game.Players.LocalPlayer
         Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         Backpack = LocalPlayer:WaitForChild("Backpack")
-        function Skill(SkillName, callback, Cooldown, ToggleCooldown)
+        function Skill(sidedash, callback, Cooldown, ToggleCooldown)
             local Skill = Instance.new("Tool")
-            Skill.Name = SkillName
+            Skill.Name = sidedash
             Skill.RequiresHandle = false
             Skill.Parent = Backpack
             Skill:SetAttribute("Cooldown", Cooldown)
@@ -97,9 +97,9 @@
         LocalPlayer = game.Players.LocalPlayer
         Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         Backpack = LocalPlayer:WaitForChild("Backpack")
-        function Skill(SkillName, callback, Cooldown, ToggleCooldown)
+        function Skill(sidedash, callback, Cooldown, ToggleCooldown)
             local Skill = Instance.new("Tool")
-            Skill.Name = SkillName
+            Skill.Name = sidedash
             Skill.RequiresHandle = false
             Skill.Parent = Backpack
             Skill:SetAttribute("Cooldown", Cooldown)
