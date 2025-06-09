@@ -136,23 +136,20 @@ local function playAnimation()
     local track = humanoid:LoadAnimation(animation)
     track.Priority = Enum.AnimationPriority.Action
     track:Play()
+	track.TimePosition = 4
+    -- (не обязательно) начать воспроизведение с 0 секунды
+    -- или выставить другую TimePosition, если нужно
+    -- track.TimePosition = 0
 
-    -- Ждём загрузки длины анимации
-    while track.Length == 0 do
-        task.wait()
-    end
-
-    -- Устанавливаем старт с 3-й секунды
-    track.TimePosition = 3
-
-    -- Останавливаем анимацию за 0.1 секунды до конца
-    local stopTime = math.max(track.Length - 2, 2)
-    delay(stopTime, function()
+    -- Остановить через 3 секунды
+    task.delay(1, function()
         if track.IsPlaying then
             track:Stop()
         end
     end)
 end
+
+
 
 
 
