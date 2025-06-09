@@ -40,7 +40,7 @@ local function loadScripts()
         else
             warn("Failed to load script: " .. url .. " | Error: " .. tostring(result))
         end
-        wait(0.5) -- Задержка 0.2 секунды между загрузками
+        wait(0.2) -- Задержка 0.2 секунды между загрузками
     end
 end
 
