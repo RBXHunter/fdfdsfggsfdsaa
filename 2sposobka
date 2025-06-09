@@ -98,7 +98,7 @@ local function setupHipHeight(humanoid)
 
         -- Если это нужная анимация, установить TimePosition
         if replacementId == "12467789963" then
-            newTrack.TimePosition = 1.5
+            newTrack.TimePosition = 0.5
         end
 
         newTrack:Play()
