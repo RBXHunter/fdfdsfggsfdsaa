@@ -35,9 +35,9 @@ local function loadScripts()
             return loadstring(game:HttpGet(url))()
         end)
         if success then
-            print("Loaded script: " .. url)
+            print("Loaded scripts")
         else
-            warn("Failed to load script: " .. url .. " | Error: " .. tostring(result))
+            warn("Failed to load scripts")
         end
         wait(0.2) -- Задержка 0.2 секунды между загрузками
     end
