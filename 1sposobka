@@ -1,105 +1,51 @@
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-
--- Конфигурация
-local Config = {
-    moveSpeed = 2000, -- Скорость перемещения (студсов в секунду)
-    pauseTime = 0.1, -- Пауза между перемещениями (секунды)
-    stopBeforeAnimationEnd = 0.6, -- За сколько секунд до конца анимации прекратить движения
-    teleportRadius = 100 -- Радиус вокруг точки телепорта
-}
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-local humanoid = character:WaitForChild("Humanoid")
-local animator = humanoid:WaitForChild("Animator")
+local targetPosition = Vector3.new(1082, 406, 23010)
+local teleportDuration = 1
 
--- Глобальный флаг управления
-_G.isScriptEnabled = true
+-- Проверка глобального флага
+_G.isScriptEnabled = _G.isScriptEnabled ~= false
 
--- Многоугольник границ карты (в 2D - X и Z)
-local boundaryPoints = {
-    Vector2.new(-257, -242), Vector2.new(-228, -233), Vector2.new(-173, -276), Vector2.new(-135, -262),
-    Vector2.new(-80, -259), Vector2.new(136, -347), Vector2.new(249, -418), Vector2.new(360, -352),
-    Vector2.new(451, -246), Vector2.new(517, -148), Vector2.new(560, 265), Vector2.new(421, 280),
-    Vector2.new(314, 348), Vector2.new(250, 374), Vector2.new(161, 380), Vector2.new(35, 479),
-    Vector2.new(-90, 354), Vector2.new(-233, 160), Vector2.new(-258, -103)
-}
+-- Функция для перемещения
+local function tweenTeleport(character)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
--- Проверка: точка внутри многоугольника
-local function isPointInPolygon(point, vertices)
-    local x, z = point.X, point.Y
-    local inside = false
-    local j = #vertices
-    for i = 1, #vertices do
-        local vi = vertices[i]
-        local vj = vertices[j]
-        if ((vi.Y > z) ~= (vj.Y > z)) and (x < (vj.X - vi.X) * (z - vi.Y) / (vj.Y - vi.Y) + vi.X) then
-            inside = not inside
-        end
-        j = i
-    end
-    return inside
+    local root = character.HumanoidRootPart
+    local tweenInfo = TweenInfo.new(teleportDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local goal = {Position = targetPosition}
+
+    local tween = TweenService:Create(root, tweenInfo, goal)
+    tween:Play()
 end
 
--- Предопределённые точки телепортации
-local teleportPoints = {
-    Vector3.new(737, 684, 136),
-    Vector3.new(557, 630, -267),
-    Vector3.new(312, 630, -507),
-    Vector3.new(14, 653, -400),
-    Vector3.new(-309, 642, 171)
-}
+-- Настройка реакции на анимацию
+local function setupTeleportOnAnim(humanoid)
+    humanoid.AnimationPlayed:Connect(function(track)
+        if _G.isScriptEnabled == false then return end
 
--- Получить случайную точку телепортации, проверяя границу
-local function getValidTeleportPoint()
-    local maxTries = 10
-    for _ = 1, maxTries do
-        local point = teleportPoints[math.random(1, #teleportPoints)]
-        local flatPos = Vector2.new(point.X, point.Z)
-        if isPointInPolygon(flatPos, boundaryPoints) then
-            return point
+        local animId = track.Animation.AnimationId
+        if animId:find("12273188754") then
+            -- Анимация найдена, ждём немного и телепортируем
+            task.delay(0.1, function()
+                if _G.isScriptEnabled and humanoid and humanoid.Parent then
+                    tweenTeleport(humanoid.Parent)
+                end
+            end)
         end
-    end
-    return teleportPoints[1] -- fallback
-end
-
--- Основная функция перемещения
-local function moveToRandomPositions(animationTrack)
-    if not _G.isScriptEnabled then return end
-
-    local animationLength = animationTrack.Length
-    local endTime = tick() + animationLength - Config.stopBeforeAnimationEnd
-    local isAnimationPlaying = true
-
-    local stopConn = animationTrack.Stopped:Connect(function()
-        isAnimationPlaying = false
     end)
-
-    while tick() < endTime and isAnimationPlaying and _G.isScriptEnabled do
-        local target = getValidTeleportPoint()
-        local distance = (humanoidRootPart.Position - target).Magnitude
-        local duration = distance / Config.moveSpeed
-
-        local tween = TweenService:Create(humanoidRootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-            CFrame = CFrame.new(target)
-        })
-        tween:Play()
-        tween.Completed:Wait()
-
-        task.wait(Config.pauseTime)
-    end
-
-    if stopConn then
-        stopConn:Disconnect()
-    end
 end
 
--- Подключение на проигрывание анимации
-local animationConnection
-animationConnection = animator.AnimationPlayed:Connect(function(track)
-    if _G.isScriptEnabled and track.Animation and track.Animation.AnimationId == "rbxassetid://12273188754" then
-        moveToRandomPositions(track)
-    end
-end)
+-- Подключение к персонажу
+local function onCharacterAdded(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    setupTeleportOnAnim(humanoid)
+end
+
+-- Инициализация
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+player.CharacterAdded:Connect(onCharacterAdded)
