@@ -4,7 +4,7 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local targetPosition = Vector3.new(1082, 406, 23010)
-local teleportDuration = 1
+local teleportDuration = 2
 
 -- Проверка глобального флага
 _G.isScriptEnabled = _G.isScriptEnabled ~= false
