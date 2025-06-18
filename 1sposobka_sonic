@@ -10,7 +10,6 @@ local ORIGINAL_ANIM_IDS = {
 
 local NEW_ANIM_ID = "rbxassetid://18903642853"
 
--- Используем глобальный флаг, по умолчанию включён, если не задан
 if _G.isScriptEnabled == nil then
     _G.isScriptEnabled = true
 end
@@ -43,17 +42,12 @@ local function setup(character)
         if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId:match("%d+")
         if ORIGINAL_ANIM_IDS[animId] then
-            -- Останавливаем оригинальную анимацию
             track:Stop()
-
-            -- Запускаем новую анимацию, начиная с 5 секунд
             local newAnim = Instance.new("Animation")
             newAnim.AnimationId = NEW_ANIM_ID
             local newTrack = animator:LoadAnimation(newAnim)
-            newTrack.TimePosition = 3
             newTrack:Play(0, 1, 2)
-
-            -- Заморозка персонажа на месте
+            newTrack.TimePosition = 3
             isFrozen = true
             freezePosition = rootPart.Position
             currentTrack = newTrack
@@ -92,24 +86,3 @@ table.insert(connections, player.CharacterAdded:Connect(function(char)
     cleanup()
     task.spawn(setup, char)
 end))
-
--- Кнопка Kill Script
-local gui = Instance.new("ScreenGui")
-gui.Name = "FreezeAnimationGui"
-gui.Parent = player:WaitForChild("PlayerGui")
-
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 100, 0, 30)
-btn.Position = UDim2.new(1, -110, 1, -40)
-btn.Text = "Kill Script"
-btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.Font = Enum.Font.SourceSansBold
-btn.TextSize = 16
-btn.Parent = gui
-
-btn.MouseButton1Click:Connect(function()
-    _G.isScriptEnabled = false
-    cleanup()
-    gui:Destroy()
-end)
