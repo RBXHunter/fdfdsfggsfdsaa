@@ -30,7 +30,7 @@ local function setup(character)
 	local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
 
 	if not (humanoid and rootPart and animator) then
-		warn("Freeze setup failed: missing components")
+		warn("missing components")
 		return
 	end
 
