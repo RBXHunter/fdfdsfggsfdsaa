@@ -1,0 +1,86 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local FREEZE_ANIM_IDS = {
+	["13376869471"] = true,
+	["13309500827"] = true,
+}
+
+-- Проверка глобального флага
+if not _G.isScriptEnabled then return end
+
+local isFrozen = false
+local freezePosition = nil
+local currentTrack = nil
+local connections = {}
+
+local function cleanup()
+	for _, conn in ipairs(connections) do
+		pcall(function()
+			conn:Disconnect()
+		end)
+	end
+	connections = {}
+end
+
+local function setup(character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+	local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
+
+	if not (humanoid and rootPart and animator) then
+		warn("Freeze setup failed: missing components")
+		return
+	end
+
+	table.insert(connections, animator.AnimationPlayed:Connect(function(track)
+		if not _G.isScriptEnabled then return end
+		local animId = track.Animation.AnimationId:match("%d+")
+		if FREEZE_ANIM_IDS[animId] then
+			isFrozen = true
+			currentTrack = track
+			freezePosition = rootPart.Position
+
+			table.insert(connections, track.Stopped:Connect(function()
+				isFrozen = false
+				freezePosition = nil
+				currentTrack = nil
+			end))
+		end
+	end))
+
+	table.insert(connections, RunService.Heartbeat:Connect(function()
+		if not _G.isScriptEnabled or not isFrozen or not freezePosition then return end
+		if not character:IsDescendantOf(workspace) then return end
+
+		local camera = workspace.CurrentCamera
+		if not camera then return end
+
+		local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
+		if look.Magnitude == 0 then
+			look = Vector3.new(0, 0, -1)
+		end
+
+		local cframe = CFrame.new(freezePosition, freezePosition + look.Unit)
+		rootPart.CFrame = cframe
+		rootPart.Velocity = Vector3.zero
+	end))
+end
+
+if player.Character then
+	task.spawn(setup, player.Character)
+end
+
+table.insert(connections, player.CharacterAdded:Connect(function(char)
+	cleanup()
+	task.spawn(setup, char)
+end))
+
+-- Следим за отключением через Kill Script
+task.spawn(function()
+	while _G.isScriptEnabled do
+		task.wait(0.5)
+	end
+	cleanup()
+end)
