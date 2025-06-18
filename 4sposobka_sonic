@@ -1,0 +1,55 @@
+local Players = game:GetService("Players")
+
+-- Не запускаем, если основной флаг выключен
+if not _G.isScriptEnabled then return end
+
+local player = Players.LocalPlayer
+local connections = {}
+
+-- Анимации
+local OLD_ANIMATION_ID = "rbxassetid://13501296372" -- 4 skill
+local NEW_ANIMATION_ID = "rbxassetid://16746824621" -- 4 skill bang
+
+-- Обработка замены анимации
+local function handleAnimations(character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not animator then return end
+
+	local animationConnection = animator.AnimationPlayed:Connect(function(track)
+		if not _G.isScriptEnabled then return end
+		if track.Animation.AnimationId == OLD_ANIMATION_ID then
+			track:Stop()
+
+			local newAnimation = Instance.new("Animation")
+			newAnimation.AnimationId = NEW_ANIMATION_ID
+
+			local newTrack = animator:LoadAnimation(newAnimation)
+			newTrack:Play(0, 1, 4)
+		end
+	end)
+
+	table.insert(connections, animationConnection)
+end
+
+-- Подключение к текущему и будущим персонажам
+if player.Character then
+	handleAnimations(player.Character)
+end
+
+local characterConnection = player.CharacterAdded:Connect(handleAnimations)
+table.insert(connections, characterConnection)
+
+-- Отслеживание глобального выключателя
+task.spawn(function()
+	while _G.isScriptEnabled do
+		task.wait(1)
+	end
+	-- Скрипт выключается
+	for _, c in ipairs(connections) do
+		if c and typeof(c) == "RBXScriptConnection" then
+			c:Disconnect()
+		end
+	end
+	table.clear(connections)
+end)
