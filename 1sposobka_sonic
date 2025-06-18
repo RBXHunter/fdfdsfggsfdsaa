@@ -2,13 +2,18 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
-local FREEZE_ANIM_IDS = {
-	["13376869471"] = true,
-	["13309500827"] = true,
+
+local ORIGINAL_ANIM_IDS = {
+    ["13376869471"] = true,
+    ["13309500827"] = true,
 }
 
--- Проверка глобального флага
-if not _G.isScriptEnabled then return end
+local NEW_ANIM_ID = "rbxassetid://18903642853"
+
+-- Используем глобальный флаг, по умолчанию включён, если не задан
+if _G.isScriptEnabled == nil then
+    _G.isScriptEnabled = true
+end
 
 local isFrozen = false
 local freezePosition = nil
@@ -16,71 +21,95 @@ local currentTrack = nil
 local connections = {}
 
 local function cleanup()
-	for _, conn in ipairs(connections) do
-		pcall(function()
-			conn:Disconnect()
-		end)
-	end
-	connections = {}
+    for _, conn in ipairs(connections) do
+        pcall(function()
+            conn:Disconnect()
+        end)
+    end
+    connections = {}
 end
 
 local function setup(character)
-	local humanoid = character:WaitForChild("Humanoid", 5)
-	local rootPart = character:WaitForChild("HumanoidRootPart", 5)
-	local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+    local animator = humanoid:FindFirstChildWhichIsA("Animator")
 
-	if not (humanoid and rootPart and animator) then
-		warn("missing components")
-		return
-	end
+    if not (humanoid and rootPart and animator) then
+        warn("missing components")
+        return
+    end
 
-	table.insert(connections, animator.AnimationPlayed:Connect(function(track)
-		if not _G.isScriptEnabled then return end
-		local animId = track.Animation.AnimationId:match("%d+")
-		if FREEZE_ANIM_IDS[animId] then
-			isFrozen = true
-			currentTrack = track
-			freezePosition = rootPart.Position
+    table.insert(connections, animator.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
+        local animId = track.Animation.AnimationId:match("%d+")
+        if ORIGINAL_ANIM_IDS[animId] then
+            -- Останавливаем оригинальную анимацию
+            track:Stop()
 
-			table.insert(connections, track.Stopped:Connect(function()
-				isFrozen = false
-				freezePosition = nil
-				currentTrack = nil
-			end))
-		end
-	end))
+            -- Запускаем новую анимацию, начиная с 5 секунд
+            local newAnim = Instance.new("Animation")
+            newAnim.AnimationId = NEW_ANIM_ID
+            local newTrack = animator:LoadAnimation(newAnim)
+            newTrack.TimePosition = 3
+            newTrack:Play(0, 1, 2)
 
-	table.insert(connections, RunService.Heartbeat:Connect(function()
-		if not _G.isScriptEnabled or not isFrozen or not freezePosition then return end
-		if not character:IsDescendantOf(workspace) then return end
+            -- Заморозка персонажа на месте
+            isFrozen = true
+            freezePosition = rootPart.Position
+            currentTrack = newTrack
 
-		local camera = workspace.CurrentCamera
-		if not camera then return end
+            newTrack.Stopped:Connect(function()
+                isFrozen = false
+                freezePosition = nil
+                currentTrack = nil
+            end)
+        end
+    end))
 
-		local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
-		if look.Magnitude == 0 then
-			look = Vector3.new(0, 0, -1)
-		end
+    table.insert(connections, RunService.Heartbeat:Connect(function()
+        if not _G.isScriptEnabled or not isFrozen or not freezePosition then return end
+        if not character:IsDescendantOf(workspace) then return end
 
-		local cframe = CFrame.new(freezePosition, freezePosition + look.Unit)
-		rootPart.CFrame = cframe
-		rootPart.Velocity = Vector3.zero
-	end))
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+
+        local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
+        if look.Magnitude == 0 then
+            look = Vector3.new(0, 0, -1)
+        end
+
+        local cframe = CFrame.new(freezePosition, freezePosition + look.Unit)
+        rootPart.CFrame = cframe
+        rootPart.Velocity = Vector3.zero
+    end))
 end
 
 if player.Character then
-	task.spawn(setup, player.Character)
+    task.spawn(setup, player.Character)
 end
 
 table.insert(connections, player.CharacterAdded:Connect(function(char)
-	cleanup()
-	task.spawn(setup, char)
+    cleanup()
+    task.spawn(setup, char)
 end))
 
--- Следим за отключением через Kill Script
-task.spawn(function()
-	while _G.isScriptEnabled do
-		task.wait(0.5)
-	end
-	cleanup()
+-- Кнопка Kill Script
+local gui = Instance.new("ScreenGui")
+gui.Name = "FreezeAnimationGui"
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 100, 0, 30)
+btn.Position = UDim2.new(1, -110, 1, -40)
+btn.Text = "Kill Script"
+btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.Font = Enum.Font.SourceSansBold
+btn.TextSize = 16
+btn.Parent = gui
+
+btn.MouseButton1Click:Connect(function()
+    _G.isScriptEnabled = false
+    cleanup()
+    gui:Destroy()
 end)
