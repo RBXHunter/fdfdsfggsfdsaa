@@ -1,0 +1,66 @@
+local Players = game:GetService("Players")
+
+-- Проверка на отключение скриптов
+if not _G.isScriptEnabled then return end
+
+-- ID анимаций
+local OLD_ANIMATION_ID = "rbxassetid://13294790250"
+local NEW_ANIMATION_ID = "rbxassetid://12467789963"
+
+local player = Players.LocalPlayer
+
+-- Безопасная инициализация
+local function waitForCharacterAndAnimator()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:WaitForChild("Humanoid", 5)
+	local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
+	return char, humanoid, animator
+end
+
+local character, humanoid, animator = waitForCharacterAndAnimator()
+if not animator then
+	warn("Animator not found")
+	return
+end
+
+local connection
+
+local function onAnimationPlayed(animationTrack)
+	if not _G.isScriptEnabled then return end
+	if animationTrack.Animation.AnimationId == OLD_ANIMATION_ID then
+		animationTrack:Stop()
+
+		local newAnimation = Instance.new("Animation")
+		newAnimation.AnimationId = NEW_ANIMATION_ID
+		local newTrack = animator:LoadAnimation(newAnimation)
+		newTrack:Play()
+
+		task.delay(1.5, function()
+			if newTrack and newTrack.IsPlaying then
+				newTrack:Stop()
+			end
+		end)
+	end
+end
+
+connection = animator.AnimationPlayed:Connect(onAnimationPlayed)
+
+-- Переподключение на нового персонажа
+player.CharacterAdded:Connect(function(char)
+	if not _G.isScriptEnabled then return end
+	if connection then connection:Disconnect() end
+	local _, _, newAnimator = waitForCharacterAndAnimator()
+	if newAnimator then
+		connection = newAnimator.AnimationPlayed:Connect(onAnimationPlayed)
+	end
+end)
+
+-- Завершение при Kill Script
+task.spawn(function()
+	while _G.isScriptEnabled do
+		task.wait(0.5)
+	end
+	if connection then
+		connection:Disconnect()
+	end
+end)
