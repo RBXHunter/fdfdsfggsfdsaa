@@ -24,10 +24,10 @@ _G.isScriptEnabled = true
 
 -- Список скриптов (замени ссылки на реальные)
 local scripts = {
-    "https://raw.githubusercontent.com/yourUser/yourRepo/main/script1.lua",
-    "https://raw.githubusercontent.com/yourUser/yourRepo/main/script2.lua",
-    "https://raw.githubusercontent.com/yourUser/yourRepo/main/script3.lua",
-    "https://raw.githubusercontent.com/yourUser/yourRepo/main/script4.lua",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/1sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/2sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/3sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/4sposobka_sonic",
 }
 
 -- Загрузка скриптов
