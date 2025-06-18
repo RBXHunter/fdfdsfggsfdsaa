@@ -2,7 +2,6 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local task = task
 
--- Не запускаем, если основной скрипт выключен
 if not _G.isScriptEnabled then return end
 
 local player = Players.LocalPlayer
@@ -22,44 +21,24 @@ local FLY_SPEED = 150
 local isFlying = false
 local flyEndTime = 0
 
--- Утилита логов
-local function debugPrint(...)
-	print("[FlightScript]", ...)
-end
-
--- Настройка на персонажа
 local function setupCharacter(char)
-	debugPrint("Character loaded:", char.Name)
 	humanoid = char:WaitForChild("Humanoid", 5)
 	rootPart = char:WaitForChild("HumanoidRootPart", 5)
-
-	if not humanoid or not rootPart then
-		warn("[FlightScript] Не удалось найти Humanoid или RootPart")
-		return
-	end
+	if not humanoid or not rootPart then return end
 
 	animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
-		debugPrint("Animator не найден, создан заново")
 	end
 
 	animator.AnimationPlayed:Connect(function(track)
 		if not _G.isScriptEnabled then return end
 		local animId = track.Animation.AnimationId:gsub("rbxassetid://", "")
-		debugPrint("Запущена анимация:", animId)
-
 		if FLY_ANIM_IDS[animId] then
-			if isFlying then
-				debugPrint("Уже летим, игнор запуска")
-				return
-			end
-
-			debugPrint("Запуск полёта через", FLY_DELAY, "сек")
+			if isFlying then return end
 			task.delay(FLY_DELAY, function()
 				if not _G.isScriptEnabled or isFlying then return end
-				debugPrint("Начался полёт на", FLY_DURATION, "сек")
 				isFlying = true
 				flyEndTime = tick() + FLY_DURATION
 			end)
@@ -72,21 +51,16 @@ if player.Character then
 end
 player.CharacterAdded:Connect(setupCharacter)
 
--- Обновление полёта
 RunService.RenderStepped:Connect(function()
-	if not _G.isScriptEnabled then return end
-	if not isFlying or not humanoid or not rootPart then return end
-
+	if not _G.isScriptEnabled or not isFlying or not humanoid or not rootPart then return end
 	if tick() > flyEndTime then
 		isFlying = false
 		rootPart.Velocity = Vector3.zero
-		debugPrint("Полёт завершён")
 		return
 	end
 
 	local cam = workspace.CurrentCamera
 	if not cam then return end
-
 	local look = cam.CFrame.LookVector
 	rootPart.Velocity = look * FLY_SPEED
 end)
