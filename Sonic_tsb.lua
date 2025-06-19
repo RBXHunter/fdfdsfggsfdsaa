@@ -28,6 +28,7 @@ local scripts = {
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/2sposobka_sonic",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/3sposobka_sonic",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/4sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/Teleport",
 }
 
 -- Загрузка скриптов
