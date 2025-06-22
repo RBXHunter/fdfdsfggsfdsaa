@@ -1,4 +1,181 @@
+-- Скрипт телепортации для главного загрузчика
+-- Хостится на raw GitHub: https://raw.githubusercontent.com/username/repository/main/1skill_teleport.lua
+
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local FREEZE_ANIM_IDS = { ["13376869471"]=true, ["13309500827"]=true }
+
+-- Список соединений
+local connections = {}
+
+-- Создание рамки на цели
+local function createTargetIndicator(target)
+    if not target or not target:FindFirstChild("Head") then return end
+    if target:FindFirstChild("TargetGui") then return end
+
+    local bb = Instance.new("BillboardGui", target)
+    bb.Name = "TargetGui"
+    bb.Size = UDim2.new(4, 0, 4, 0)
+    bb.AlwaysOnTop = true
+    bb.Adornee = target.Head
+
+    local frame = Instance.new("Frame", bb)
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 0.5
+    frame.BackgroundColor3 = Color3.new(1, 0, 0)
+    frame.BorderSizePixel = 0
+end
+
+-- Удаление рамки
+local function clearIndicators()
+    for _, model in pairs(workspace.Live:GetChildren()) do
+        if model:FindFirstChild("TargetGui") then
+            model.TargetGui:Destroy()
+        end
+    end
+end
+
+-- Поиск цели
+local function findTarget()
+    if not _G.isScriptEnabled then return nil end
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+
+    local origin = cam.CFrame.Position
+    local dir = cam.CFrame.LookVector
+
+    local best, bestDot = nil, -1
+    for _, model in pairs(workspace.Live:GetChildren()) do
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if model ~= player.Character and hrp then
+            local to = (hrp.Position - origin)
+            local dist = to.Magnitude
+            if dist <= 100 then
+                local dot = dir:Dot(to.Unit)
+                if dot >= 0.86 and dot > bestDot then
+                    bestDot = dot
+                    best = model
+                end
+            end
+        end
+    end
+
+    clearIndicators()
+    if best then createTargetIndicator(best) end
+    return best
+end
+
+-- Основной скрипт
+local isFrozen = false
+local freezePos = nil
+
+local function setup(char)
+    if not _G.isScriptEnabled then return end
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    local root = char:WaitForChild("HumanoidRootPart", 5)
+    local animator = humanoid:FindFirstChildWhichIsA("Animator")
+
+    if not (humanoid and root and animator) then
+        warn("Ошибка инициализации телепортации")
+        return
+    end
+
+    local animationConnection = animator.AnimationPlayed:Connect(function(tr)
+        if not _G.isScriptEnabled then return end
+        local id = tr.Animation.AnimationId:match("%d+")
+        if FREEZE_ANIM_IDS[id] then
+            isFrozen = true
+
+            local target = findTarget()
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                local hrp = target.HumanoidRootPart
+                local back = -hrp.CFrame.LookVector * 3
+                local pos = hrp.Position + back + Vector3.new(0, 2, 0)
+                local look = hrp.CFrame.LookVector
+
+                local newCFrame = CFrame.new(pos, pos + look)
+                root.CFrame = newCFrame
+                root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+
+                local cam = workspace.CurrentCamera
+                if cam then cam.CFrame = newCFrame end
+
+                freezePos = pos
+            else
+                freezePos = root.Position
+            end
+
+            local stoppedConnection = tr.Stopped:Connect(function()
+                isFrozen = false
+                freezePos = nil
+                clearIndicators()
+            end)
+            table.insert(connections, stoppedConnection)
+        end
+    end)
+
+    local heartbeatConnection = RunService.Heartbeat:Connect(function()
+        if not _G.isScriptEnabled or not isFrozen or not freezePos or not char:IsDescendantOf(workspace) then return end
+
+        local y = root.Position.Y
+        root.CFrame = CFrame.new(Vector3.new(freezePos.X, y, freezePos.Z), root.CFrame.LookVector + root.Position)
+        root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+    end)
+
+    local renderConnection = RunService.RenderStepped:Connect(function()
+        if not _G.isScriptEnabled then return end
+        findTarget()
+    end)
+
+    table.insert(connections, animationConnection)
+    table.insert(connections, heartbeatConnection)
+    table.insert(connections, renderConnection)
+end
+
+-- Инициализация
+if player.Character then
+    task.spawn(setup, player.Character)
+end
+local characterConnection = player.CharacterAdded:Connect(setup)
+table.insert(connections, characterConnection)
+
+-- Очистка при отключении скрипта
+local function cleanup()
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    isFrozen = false
+    freezePos = nil
+    clearIndicators()
+    local character = player.Character
+    if character then
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Velocity = Vector3.new(0, 0, 0)
+        end
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+                if track.IsPlaying then
+                    track:Stop()
+                end
+            end
+        end
+    end
+end
+
+-- Отслеживание отключения через главный загрузчик
+game:BindToClose(cleanup)
+RunService.Heartbeat:Connect(function()
+    if not _G.isScriptEnabled then
+        cleanup()
+    end
+end)local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
