@@ -1,18 +1,21 @@
+-- Скрипт полёта для главного загрузчика
+-- Хостится на raw GitHub: https://raw.githubusercontent.com/username/repository/main/3skill_sonic.lua
+
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local task = task
 
+-- Проверка на отключение скриптов
 if not _G.isScriptEnabled then return end
 
 local player = Players.LocalPlayer
 if not player then
-	player = Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and Players.LocalPlayer
+    player = Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and Players.LocalPlayer
 end
 
-local humanoid, rootPart, animator
 local FLY_ANIM_IDS = {
-	["13376962659"] = true,
-	["13362587853"] = true,
+    ["13376962659"] = true,
+    ["13362587853"] = true,
 }
 local FLY_DELAY = 0.3
 local FLY_DURATION = 1.5
@@ -20,47 +23,85 @@ local FLY_SPEED = 150
 
 local isFlying = false
 local flyEndTime = 0
+local humanoid, rootPart, animator
 
+-- Список соединений
+local connections = {}
+
+-- Настройка персонажа
 local function setupCharacter(char)
-	humanoid = char:WaitForChild("Humanoid", 5)
-	rootPart = char:WaitForChild("HumanoidRootPart", 5)
-	if not humanoid or not rootPart then return end
+    if not _G.isScriptEnabled then return end
+    humanoid = char:WaitForChild("Humanoid", 5)
+    rootPart = char:WaitForChild("HumanoidRootPart", 5)
+    if not humanoid or not rootPart then
+        warn("Ошибка: Humanoid или HumanoidRootPart не найдены")
+        return
+    end
 
-	animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
+    animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = humanoid
+    end
 
-	animator.AnimationPlayed:Connect(function(track)
-		if not _G.isScriptEnabled then return end
-		local animId = track.Animation.AnimationId:gsub("rbxassetid://", "")
-		if FLY_ANIM_IDS[animId] then
-			if isFlying then return end
-			task.delay(FLY_DELAY, function()
-				if not _G.isScriptEnabled or isFlying then return end
-				isFlying = true
-				flyEndTime = tick() + FLY_DURATION
-			end)
-		end
-	end)
+    local animationConnection = animator.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
+        local animId = track.Animation.AnimationId:gsub("rbxassetid://", "")
+        if FLY_ANIM_IDS[animId] then
+            if isFlying then return end
+            task.delay(FLY_DELAY, function()
+                if not _G.isScriptEnabled or isFlying then return end
+                isFlying = true
+                flyEndTime = tick() + FLY_DURATION
+            end)
+        end
+    end)
+
+    table.insert(connections, animationConnection)
 end
 
+-- Инициализация
 if player.Character then
-	setupCharacter(player.Character)
+    task.spawn(setupCharacter, player.Character)
 end
-player.CharacterAdded:Connect(setupCharacter)
+local characterConnection = player.CharacterAdded:Connect(setupCharacter)
+table.insert(connections, characterConnection)
 
-RunService.RenderStepped:Connect(function()
-	if not _G.isScriptEnabled or not isFlying or not humanoid or not rootPart then return end
-	if tick() > flyEndTime then
-		isFlying = false
-		rootPart.Velocity = Vector3.zero
-		return
-	end
+-- Полёт
+local renderConnection = RunService.RenderStepped:Connect(function()
+    if not _G.isScriptEnabled or not isFlying or not humanoid or not rootPart then return end
+    if tick() > flyEndTime then
+        isFlying = false
+        rootPart.Velocity = Vector3.zero
+        return
+    end
 
-	local cam = workspace.CurrentCamera
-	if not cam then return end
-	local look = cam.CFrame.LookVector
-	rootPart.Velocity = look * FLY_SPEED
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local look = cam.CFrame.LookVector
+    rootPart.Velocity = look * FLY_SPEED
+end)
+table.insert(connections, renderConnection)
+
+-- Очистка при отключении скрипта
+local function cleanup()
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    isFlying = false
+    if rootPart then
+        rootPart.Velocity = Vector3.zero
+    end
+end
+
+-- Отслеживание отключения через главный загрузчик
+game:BindToClose(cleanup)
+task.spawn(function()
+    while _G.isScriptEnabled do
+        task.wait(0.5)
+    end
+    cleanup()
 end)
