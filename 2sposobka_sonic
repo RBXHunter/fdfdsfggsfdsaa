@@ -1,4 +1,8 @@
+-- Скрипт замены анимации для главного загрузчика
+-- Хостится на raw GitHub: https://raw.githubusercontent.com/username/repository/main/2skill_sonic.lua
+
 local Players = game:GetService("Players")
+local task = task
 
 -- Проверка на отключение скриптов
 if not _G.isScriptEnabled then return end
@@ -9,58 +13,82 @@ local NEW_ANIMATION_ID = "rbxassetid://12467789963"
 
 local player = Players.LocalPlayer
 
+-- Список соединений
+local connections = {}
+
 -- Безопасная инициализация
 local function waitForCharacterAndAnimator()
-	local char = player.Character or player.CharacterAdded:Wait()
-	local humanoid = char:WaitForChild("Humanoid", 5)
-	local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
-	return char, humanoid, animator
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    local animator = humanoid and humanoid:FindFirstChildWhichIsA("Animator")
+    return char, humanoid, animator
 end
 
-local character, humanoid, animator = waitForCharacterAndAnimator()
-if not animator then
-	warn("Animator not found")
-	return
+local function setup()
+    if not _G.isScriptEnabled then return end
+    local char, humanoid, animator = waitForCharacterAndAnimator()
+    if not animator then
+        warn("Ошибка: Animator не найден")
+        return
+    end
+
+    local animationConnection = animator.AnimationPlayed:Connect(function(animationTrack)
+        if not _G.isScriptEnabled then return end
+        if animationTrack.Animation.AnimationId == OLD_ANIMATION_ID then
+            animationTrack:Stop()
+
+            local newAnimation = Instance.new("Animation")
+            newAnimation.AnimationId = NEW_ANIMATION_ID
+            local newTrack = animator:LoadAnimation(newAnimation)
+            newTrack:Play()
+
+            task.delay(1.5, function()
+                if newTrack and newTrack.IsPlaying then
+                    newTrack:Stop()
+                end
+            end)
+        end
+    end)
+
+    table.insert(connections, animationConnection)
 end
 
-local connection
-
-local function onAnimationPlayed(animationTrack)
-	if not _G.isScriptEnabled then return end
-	if animationTrack.Animation.AnimationId == OLD_ANIMATION_ID then
-		animationTrack:Stop()
-
-		local newAnimation = Instance.new("Animation")
-		newAnimation.AnimationId = NEW_ANIMATION_ID
-		local newTrack = animator:LoadAnimation(newAnimation)
-		newTrack:Play()
-
-		task.delay(1.5, function()
-			if newTrack and newTrack.IsPlaying then
-				newTrack:Stop()
-			end
-		end)
-	end
+-- Инициализация
+if player.Character then
+    task.spawn(setup)
 end
-
-connection = animator.AnimationPlayed:Connect(onAnimationPlayed)
-
--- Переподключение на нового персонажа
-player.CharacterAdded:Connect(function(char)
-	if not _G.isScriptEnabled then return end
-	if connection then connection:Disconnect() end
-	local _, _, newAnimator = waitForCharacterAndAnimator()
-	if newAnimator then
-		connection = newAnimator.AnimationPlayed:Connect(onAnimationPlayed)
-	end
+local characterConnection = player.CharacterAdded:Connect(function()
+    if not _G.isScriptEnabled then return end
+    setup()
 end)
+table.insert(connections, characterConnection)
 
--- Завершение при Kill Script
+-- Очистка при отключении скрипта
+local function cleanup()
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+                if track.IsPlaying then
+                    track:Stop()
+                end
+            end
+        end
+    end
+end
+
+-- Отслеживание отключения через главный загрузчик
+game:BindToClose(cleanup)
 task.spawn(function()
-	while _G.isScriptEnabled do
-		task.wait(0.5)
-	end
-	if connection then
-		connection:Disconnect()
-	end
+    while _G.isScriptEnabled do
+        task.wait(0.5)
+    end
+    cleanup()
 end)
