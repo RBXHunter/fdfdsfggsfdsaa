@@ -1,9 +1,15 @@
-local Players = game:GetService("Players")
+-- Скрипт замены анимации для главного загрузчика
+-- Хостится на raw GitHub: https://raw.githubusercontent.com/username/repository/main/4skill_sonic.lua
 
--- Не запускаем, если основной флаг выключен
+local Players = game:GetService("Players")
+local task = task
+
+-- Проверка на отключение скриптов
 if not _G.isScriptEnabled then return end
 
 local player = Players.LocalPlayer
+
+-- Список соединений
 local connections = {}
 
 -- Анимации
@@ -12,44 +18,63 @@ local NEW_ANIMATION_ID = "rbxassetid://16746824621" -- 4 skill bang
 
 -- Обработка замены анимации
 local function handleAnimations(character)
-	local humanoid = character:WaitForChild("Humanoid", 5)
-	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-	if not animator then return end
+    if not _G.isScriptEnabled then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+    if not animator then
+        warn("Ошибка: Animator не найден")
+        return
+    end
 
-	local animationConnection = animator.AnimationPlayed:Connect(function(track)
-		if not _G.isScriptEnabled then return end
-		if track.Animation.AnimationId == OLD_ANIMATION_ID then
-			track:Stop()
+    local animationConnection = animator.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
+        if track.Animation.AnimationId == OLD_ANIMATION_ID then
+            track:Stop()
 
-			local newAnimation = Instance.new("Animation")
-			newAnimation.AnimationId = NEW_ANIMATION_ID
+            local newAnimation = Instance.new("Animation")
+            newAnimation.AnimationId = NEW_ANIMATION_ID
 
-			local newTrack = animator:LoadAnimation(newAnimation)
-			newTrack:Play(0, 1, 4)
-		end
-	end)
+            local newTrack = animator:LoadAnimation(newAnimation)
+            newTrack:Play(0, 1, 4)
+        end
+    end)
 
-	table.insert(connections, animationConnection)
+    table.insert(connections, animationConnection)
 end
 
--- Подключение к текущему и будущим персонажам
+-- Инициализация
 if player.Character then
-	handleAnimations(player.Character)
+    task.spawn(handleAnimations, player.Character)
 end
-
 local characterConnection = player.CharacterAdded:Connect(handleAnimations)
 table.insert(connections, characterConnection)
 
--- Отслеживание глобального выключателя
+-- Очистка при отключении скрипта
+local function cleanup()
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+                if track.IsPlaying then
+                    track:Stop()
+                end
+            end
+        end
+    end
+end
+
+-- Отслеживание отключения через главный загрузчик
+game:BindToClose(cleanup)
 task.spawn(function()
-	while _G.isScriptEnabled do
-		task.wait(1)
-	end
-	-- Скрипт выключается
-	for _, c in ipairs(connections) do
-		if c and typeof(c) == "RBXScriptConnection" then
-			c:Disconnect()
-		end
-	end
-	table.clear(connections)
+    while _G.isScriptEnabled do
+        task.wait(0.5)
+    end
+    cleanup()
 end)
