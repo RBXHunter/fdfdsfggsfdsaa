@@ -34,10 +34,10 @@ local connections = {}
 
 -- Список скриптов (замените ссылки на реальные raw GitHub ссылки)
 local scripts = {
-    "https://raw.githubusercontent.com/username/repository/main/4sposobka_sonic.lua",
-    "https://raw.githubusercontent.com/username/repository/main/2sposobka_sonic.lua",
-    "https://raw.githubusercontent.com/username/repository/main/3sposobka_sonic.lua",
-    "https://raw.githubusercontent.com/username/repository/main/1sposobka_sonic.lua",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/4sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/3sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/2sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/1sposobka_sonic",
 }
 
 -- Функция для очистки индикаторов
