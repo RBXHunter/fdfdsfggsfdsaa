@@ -100,7 +100,7 @@ local function setup(char)
 		local pos = hrp.Position + back + Vector3.new(0, 2, 0)
 		local look = hrp.CFrame.LookVector
 
-		task.delay(1.3, function()
+		task.delay(1.5, function()
 			if not char:IsDescendantOf(workspace) then return end
 
 			local newCFrame = CFrame.new(pos, pos + look)
@@ -127,7 +127,7 @@ local function setup(char)
 	end
 
 	local stoppedConnection = tr.Stopped:Connect(resetFreeze)
-	task.delay(3, resetFreeze) -- сброс через 3 секунды, даже если Stopped не сработает
+	task.delay(1, resetFreeze) -- сброс через 3 секунды, даже если Stopped не сработает
 
 	table.insert(connections, stoppedConnection)
 end)
