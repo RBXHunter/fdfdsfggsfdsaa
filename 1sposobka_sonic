@@ -81,56 +81,79 @@ local function setup(char)
 	local root = char:WaitForChild("HumanoidRootPart", 5)
 	if not humanoid or not root then return end
 
-	local animator = humanoid:FindFirstChildWhichIsA("Animator")
-	if not animator then
-		warn("❌ Animator не найден.")
-		return
+	local function onAnimationPlayed(tr)
+		local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
+		if not id or not FREEZE_ANIM_IDS[id] then return end
+
+		isFrozen = true
+
+		local target = findTarget()
+		if target and target:FindFirstChild("HumanoidRootPart") then
+			local hrp = target.HumanoidRootPart
+			local back = -hrp.CFrame.LookVector * 3
+			local pos = hrp.Position + back + Vector3.new(0, 2, 0)
+			local look = hrp.CFrame.LookVector
+
+			task.delay(1.5, function()
+				if not char:IsDescendantOf(workspace) then return end
+
+				local newCFrame = CFrame.new(pos, pos + look)
+				root.CFrame = newCFrame
+				root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+
+				local cam = workspace.CurrentCamera
+				if cam then cam.CFrame = newCFrame end
+
+				freezePos = pos
+			end)
+		else
+			freezePos = root.Position
+		end
+
+		local stopHandled = false
+		local function resetFreeze()
+			if stopHandled then return end
+			stopHandled = true
+			isFrozen = false
+			freezePos = nil
+			clearIndicators()
+		end
+
+		local stoppedConnection = tr.Stopped:Connect(resetFreeze)
+		task.delay(3, resetFreeze)
+
+		table.insert(connections, stoppedConnection)
 	end
 
-	local animationConnection = animator.AnimationPlayed:Connect(function(tr)
-	local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
-	if not id or not FREEZE_ANIM_IDS[id] then return end
+	-- ❗ Подключаем к Humanoid.AnimationPlayed (работает в R6)
+	local animationConnection = humanoid.AnimationPlayed:Connect(onAnimationPlayed)
 
-	isFrozen = true
+	local heartbeatConnection = RunService.Heartbeat:Connect(function()
+		if kill or not isFrozen or not freezePos then return end
+		if not char:IsDescendantOf(workspace) then return end
 
-	local target = findTarget()
-	if target and target:FindFirstChild("HumanoidRootPart") then
-		local hrp = target.HumanoidRootPart
-		local back = -hrp.CFrame.LookVector * 3
-		local pos = hrp.Position + back + Vector3.new(0, 2, 0)
-		local look = hrp.CFrame.LookVector
+		local target = findTarget()
+		if not target or not target:FindFirstChild("HumanoidRootPart") then return end
 
-		task.delay(1.5, function()
-			if not char:IsDescendantOf(workspace) then return end
+		local targetPos = target.HumanoidRootPart.Position
+		local direction = (targetPos - root.Position).Unit
+		local y = root.Position.Y
+		local newPos = Vector3.new(freezePos.X, y, freezePos.Z)
 
-			local newCFrame = CFrame.new(pos, pos + look)
-			root.CFrame = newCFrame
-			root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+		root.CFrame = CFrame.new(newPos, newPos + direction)
+		root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+	end)
 
-			local cam = workspace.CurrentCamera
-			if cam then cam.CFrame = newCFrame end
+	local renderConnection = RunService.RenderStepped:Connect(function()
+		if not kill then
+			findTarget()
+		end
+	end)
 
-			freezePos = pos
-		end)
-	else
-		freezePos = root.Position
-	end
-
-	local stopHandled = false
-
-	local function resetFreeze()
-		if stopHandled then return end
-		stopHandled = true
-		isFrozen = false
-		freezePos = nil
-		clearIndicators()
-	end
-
-	local stoppedConnection = tr.Stopped:Connect(resetFreeze)
-	task.delay(1, resetFreeze) -- сброс через 3 секунды, даже если Stopped не сработает
-
-	table.insert(connections, stoppedConnection)
-end)
+	table.insert(connections, animationConnection)
+	table.insert(connections, heartbeatConnection)
+	table.insert(connections, renderConnection)
+end
 
 
 	local heartbeatConnection = RunService.Heartbeat:Connect(function()
