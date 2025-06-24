@@ -88,19 +88,20 @@ local function setup(char)
 	end
 
 	local animationConnection = animator.AnimationPlayed:Connect(function(tr)
-		local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
-		if not id or not FREEZE_ANIM_IDS[id] then return end
+	local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
+	if not id or not FREEZE_ANIM_IDS[id] then return end
 
-		isFrozen = true
+	isFrozen = true
 
-		local target = findTarget()
-		if target and target:FindFirstChild("HumanoidRootPart") then
-			local hrp = target.HumanoidRootPart
-			local back = -hrp.CFrame.LookVector * 3
-			local pos = hrp.Position + back + Vector3.new(0, 2, 0)
-			local look = hrp.CFrame.LookVector
+	local target = findTarget()
+	if target and target:FindFirstChild("HumanoidRootPart") then
+		local hrp = target.HumanoidRootPart
+		local back = -hrp.CFrame.LookVector * 3
+		local pos = hrp.Position + back + Vector3.new(0, 2, 0)
+		local look = hrp.CFrame.LookVector
 
-			task.wait(1.3)
+		task.delay(1.3, function()
+			if not char:IsDescendantOf(workspace) then return end
 
 			local newCFrame = CFrame.new(pos, pos + look)
 			root.CFrame = newCFrame
@@ -110,17 +111,27 @@ local function setup(char)
 			if cam then cam.CFrame = newCFrame end
 
 			freezePos = pos
-		else
-			freezePos = root.Position
-		end
-
-		local stoppedConnection = tr.Stopped:Connect(function()
-			isFrozen = false
-			freezePos = nil
-			clearIndicators()
 		end)
-		table.insert(connections, stoppedConnection)
-	end)
+	else
+		freezePos = root.Position
+	end
+
+	local stopHandled = false
+
+	local function resetFreeze()
+		if stopHandled then return end
+		stopHandled = true
+		isFrozen = false
+		freezePos = nil
+		clearIndicators()
+	end
+
+	local stoppedConnection = tr.Stopped:Connect(resetFreeze)
+	task.delay(3, resetFreeze) -- сброс через 3 секунды, даже если Stopped не сработает
+
+	table.insert(connections, stoppedConnection)
+end)
+
 
 	local heartbeatConnection = RunService.Heartbeat:Connect(function()
 		if kill or not isFrozen or not freezePos then return end
