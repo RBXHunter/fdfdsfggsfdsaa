@@ -101,7 +101,7 @@ local function setup(char)
 				local pos = hrp.Position + back + Vector3.new(0, 2, 0)
 				local look = hrp.CFrame.LookVector
 
-				task.wait(0.5) -- ЗАДЕРЖКА 0.5 секунд перед телепортом
+				task.wait(1) -- ЗАДЕРЖКА 0.5 секунд перед телепортом
 
 				local newCFrame = CFrame.new(pos, pos + look)
 				root.CFrame = newCFrame
