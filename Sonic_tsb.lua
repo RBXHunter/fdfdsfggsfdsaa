@@ -38,6 +38,7 @@ local scripts = {
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/3sposobka_sonic",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/2sposobka_sonic",
     "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/1sposobka_sonic",
+    "https://raw.githubusercontent.com/RBXHunter/fdfdsfggsfdsaa/refs/heads/main/sonic1",
 }
 
 -- Функция для очистки индикаторов
