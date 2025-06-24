@@ -1,142 +1,143 @@
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local FREEZE_ANIM_IDS = { ["13376869471"]=true, ["13309500827"]=true }
+-- Конфигурация анимаций
+local targetAnimations = {
+    ["13378708199"] = {newId = "rbxassetid://18897624255", startTime = 1.7, stopAfter = true},
+    ["10470104242"] = {newId = "rbxassetid://129651400898906", startTime = 0.2, stopAfter = false}
+}
 
-local gui = Instance.new("ScreenGui", game.CoreGui)
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0,100,0,30)
-btn.Position = UDim2.new(1,-110,1,-40)
-btn.Text = "Kill Script"
-btn.BackgroundColor3 = Color3.new(1,0,0)
-btn.TextColor3 = Color3.new(1,1,1)
-btn.Parent = gui
+-- Глобальные переменные
+local humanoid = nil
+local currentNewTrack = nil
+local isReplacing = false
+local heartbeatConnection
+local animationPlayedConnection
 
-local kill = false
-btn.MouseButton1Click:Connect(function()
-    kill = true
-    gui:Destroy()
-end)
-
--- Создание рамки на цели
-local function createTargetIndicator(target)
-	if not target or not target:FindFirstChild("Head") then return end
-
-	if target:FindFirstChild("TargetGui") then return end -- уже есть
-
-	local bb = Instance.new("BillboardGui", target)
-	bb.Name = "TargetGui"
-	bb.Size = UDim2.new(4, 0, 4, 0)
-	bb.AlwaysOnTop = true
-	bb.Adornee = target.Head
-
-	local frame = Instance.new("Frame", bb)
-	frame.Size = UDim2.new(1, 0, 1, 0)
-	frame.BackgroundTransparency = 0.5
-	frame.BackgroundColor3 = Color3.new(1, 0, 0)
-	frame.BorderSizePixel = 0
+local function fadeOutAnimation(track, fadeTime)
+    local steps = 20
+    local stepTime = fadeTime / steps
+    for i = 1, steps do
+        if not track.IsPlaying or not _G.isScriptEnabled then return end
+        local weight = 1 * (1 - (i / steps))
+        track:AdjustWeight(weight, 0)
+        task.wait(stepTime)
+    end
+    if track.IsPlaying then
+        track:Stop()
+    end
 end
 
--- Удаление рамки
-local function clearIndicators()
-	for _, model in pairs(workspace.Live:GetChildren()) do
-		if model:FindFirstChild("TargetGui") then
-			model.TargetGui:Destroy()
-		end
-	end
+local function stopCurrentAnimation()
+    if not _G.isScriptEnabled then return end
+
+    if currentNewTrack and currentNewTrack.IsPlaying then
+        local animId = string.gsub(currentNewTrack.Animation.AnimationId, "rbxassetid://", "")
+        local animConfig = nil
+        for _, v in pairs(targetAnimations) do
+            if v.newId == currentNewTrack.Animation.AnimationId then
+                animConfig = v
+                break
+            end
+        end
+        if animConfig and animConfig.stopAfter then
+            fadeOutAnimation(currentNewTrack, 0.3)
+        end
+        currentNewTrack = nil
+        isReplacing = false
+    end
 end
 
--- Поиск цели
-local function findTarget()
-	local cam = workspace.CurrentCamera
-	if not cam then return nil end
+local function replaceAnimation(trackToStop, targetId)
+    if not _G.isScriptEnabled or isReplacing or not humanoid then return end
+    isReplacing = true
 
-	local origin = cam.CFrame.Position
-	local dir = cam.CFrame.LookVector
+    if trackToStop and trackToStop.IsPlaying then
+        trackToStop:Stop()
+    end
+    stopCurrentAnimation()
 
-	local best, bestDot = nil, -1
-	for _, model in pairs(workspace.Live:GetChildren()) do
-		local hrp = model:FindFirstChild("HumanoidRootPart")
-		if model ~= player.Character and hrp then
-			local to = (hrp.Position - origin)
-			local dist = to.Magnitude
-			if dist <= 100 then
-				local dot = dir:Dot(to.Unit)
-				if dot >= 0.86 and dot > bestDot then
-					bestDot = dot
-					best = model
-				end
-			end
-		end
-	end
+    local animData = targetAnimations[targetId]
+    if not animData then
+        isReplacing = false
+        return
+    end
 
-	clearIndicators()
-	if best then createTargetIndicator(best) end
-	return best
+    local newAnimation = Instance.new("Animation")
+    newAnimation.AnimationId = animData.newId
+
+    local newTrack = humanoid:LoadAnimation(newAnimation)
+    newTrack.Priority = Enum.AnimationPriority.Action4
+    newTrack:Play(0, 1, 2)
+    currentNewTrack = newTrack
+
+    task.delay(0.05, function()
+        if newTrack.IsPlaying then
+            newTrack.TimePosition = animData.startTime
+        end
+    end)
+
+    if animData.stopAfter then
+        task.delay(0.25, function()
+            if newTrack.IsPlaying and _G.isScriptEnabled then
+                fadeOutAnimation(newTrack, 0.3)
+                currentNewTrack = nil
+                isReplacing = false
+            end
+        end)
+    else
+        task.delay(0.5, function()
+            isReplacing = false
+        end)
+    end
 end
 
--- Основной скрипт
-local isFrozen = false
-local freezePos = nil
+local function setupHumanoid(newHumanoid)
+    if animationPlayedConnection then animationPlayedConnection:Disconnect() end
+    if heartbeatConnection then heartbeatConnection:Disconnect() end
 
-local function setup(char)
-	local humanoid = char:WaitForChild("Humanoid", 5)
-	local root = char:WaitForChild("HumanoidRootPart", 5)
-	local animator = humanoid:FindFirstChildWhichIsA("Animator")
+    humanoid = newHumanoid
+    currentNewTrack = nil
+    isReplacing = false
 
-	if not (humanoid and root and animator) then
-		warn("Ошибка инициализации")
-		return
-	end
+    animationPlayedConnection = humanoid.AnimationPlayed:Connect(function(track)
+        if not _G.isScriptEnabled then return end
+        local id = string.gsub(track.Animation.AnimationId, "rbxassetid://", "")
+        if targetAnimations[id] then
+            replaceAnimation(track, id)
+        elseif currentNewTrack and id ~= string.gsub(currentNewTrack.Animation.AnimationId, "rbxassetid://", "") then
+            stopCurrentAnimation()
+        end
+    end)
 
-	animator.AnimationPlayed:Connect(function(tr)
-		local id = tr.Animation.AnimationId:match("%d+")
-		if FREEZE_ANIM_IDS[id] then
-			isFrozen = true
-
-			local target = findTarget()
-			if target and target:FindFirstChild("HumanoidRootPart") then
-				local hrp = target.HumanoidRootPart
-				local back = -hrp.CFrame.LookVector * 3
-				local pos = hrp.Position + back + Vector3.new(0, 2, 0)
-				local look = hrp.CFrame.LookVector
-
-				local newCFrame = CFrame.new(pos, pos + look)
-				root.CFrame = newCFrame
-				root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-
-				local cam = workspace.CurrentCamera
-				if cam then cam.CFrame = newCFrame end
-
-				freezePos = pos
-			else
-				freezePos = root.Position
-			end
-
-			tr.Stopped:Connect(function()
-				isFrozen = false
-				freezePos = nil
-				clearIndicators()
-			end)
-		end
-	end)
-
-	RunService.Heartbeat:Connect(function()
-		if kill or not isFrozen or not freezePos then return end
-		if not char:IsDescendantOf(workspace) then return end
-
-		local y = root.Position.Y
-		root.CFrame = CFrame.new(Vector3.new(freezePos.X, y, freezePos.Z), root.CFrame.LookVector + root.Position)
-		root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-	end)
-
-	-- Постоянное обновление рамки
-	RunService.RenderStepped:Connect(function()
-		if kill then return end
-		findTarget()
-	end)
+    heartbeatConnection = RunService.Heartbeat:Connect(function()
+        if not _G.isScriptEnabled or not humanoid then return end
+        local foundTarget = false
+        for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+            local id = string.gsub(track.Animation.AnimationId, "rbxassetid://", "")
+            if targetAnimations[id] then
+                replaceAnimation(track, id)
+                foundTarget = true
+                break
+            end
+        end
+        if not foundTarget and humanoid.MoveDirection.Magnitude > 0 then
+            stopCurrentAnimation()
+        end
+    end)
 end
 
-if player.Character then task.spawn(setup, player.Character) end
-player.CharacterAdded:Connect(setup)
+local function onCharacterAdded(character)
+    if not _G.isScriptEnabled then return end
+    local newHumanoid = character:WaitForChild("Humanoid")
+    setupHumanoid(newHumanoid)
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
