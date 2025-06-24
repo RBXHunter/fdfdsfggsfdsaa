@@ -95,6 +95,7 @@ local function setup(char)
                 local pos = hrp.Position + back + Vector3.new(0, 2, 0)
                 local look = hrp.CFrame.LookVector
 
+		task.wait(0.2)
                 local newCFrame = CFrame.new(pos, pos + look)
                 root.CFrame = newCFrame
                 root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
