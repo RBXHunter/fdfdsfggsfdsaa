@@ -1,5 +1,3 @@
--- Скрипт телепортации с задержкой 0.5 секунды
-
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -8,19 +6,6 @@ local FREEZE_ANIM_IDS = {
 	["13376869471"] = true,
 	["13309500827"] = true
 }
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "TeleportGui"
-gui.ResetOnSpawn = false
-gui.Parent = game:GetService("CoreGui")
-
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 100, 0, 30)
-btn.Position = UDim2.new(1, -110, 1, -40)
-btn.Text = "Kill Script"
-btn.BackgroundColor3 = Color3.new(1, 0, 0)
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.Parent = gui
 
 local kill = false
 local connections = {}
@@ -164,26 +149,9 @@ local function setup(char)
 	table.insert(connections, renderConnection)
 end
 
--- Инициализация на существующем персонаже
 if player.Character then
 	task.spawn(setup, player.Character)
 end
 
--- Подключение к новому персонажу
 local characterConnection = player.CharacterAdded:Connect(setup)
 table.insert(connections, characterConnection)
-
--- Обработка нажатия кнопки отключения
-btn.MouseButton1Click:Connect(function()
-	kill = true
-	for _, c in ipairs(connections) do
-		if typeof(c) == "RBXScriptConnection" then
-			pcall(function() c:Disconnect() end)
-		end
-	end
-	table.clear(connections)
-	isFrozen = false
-	freezePos = nil
-	clearIndicators()
-	gui:Destroy()
-end)
