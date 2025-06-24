@@ -124,14 +124,22 @@ local function setup(char)
 		end
 	end)
 
-	local heartbeatConnection = RunService.Heartbeat:Connect(function()
-		if kill or not isFrozen or not freezePos then return end
-		if not char:IsDescendantOf(workspace) then return end
+local heartbeatConnection = RunService.Heartbeat:Connect(function()
+	if kill or not isFrozen or not freezePos then return end
+	if not char:IsDescendantOf(workspace) then return end
 
-		local y = root.Position.Y
-		root.CFrame = CFrame.new(Vector3.new(freezePos.X, y, freezePos.Z), root.CFrame.LookVector + root.Position)
-		root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-	end)
+	local target = findTarget()
+	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
+
+	local targetPos = target.HumanoidRootPart.Position
+	local direction = (targetPos - root.Position).Unit
+	local y = root.Position.Y
+	local newPos = Vector3.new(freezePos.X, y, freezePos.Z)
+
+	root.CFrame = CFrame.new(newPos, newPos + direction)
+	root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+end)
+
 
 	local renderConnection = RunService.RenderStepped:Connect(function()
 		if kill then return end
