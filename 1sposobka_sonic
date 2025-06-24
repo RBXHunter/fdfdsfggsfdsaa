@@ -1,13 +1,19 @@
 -- Скрипт телепортации с задержкой 0.5 секунды
+
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-local FREEZE_ANIM_IDS = { ["13376869471"] = true, ["13309500827"] = true }
+local FREEZE_ANIM_IDS = {
+	["13376869471"] = true,
+	["13309500827"] = true
+}
 
-local gui = Instance.new("ScreenGui", game.CoreGui)
+local gui = Instance.new("ScreenGui")
 gui.Name = "TeleportGui"
 gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
 local btn = Instance.new("TextButton")
 btn.Size = UDim2.new(0, 100, 0, 30)
 btn.Position = UDim2.new(1, -110, 1, -40)
@@ -21,41 +27,47 @@ local connections = {}
 
 -- Создание рамки на цели
 local function createTargetIndicator(target)
-	if not target or not target:FindFirstChild("Head") then return end
-	if target:FindFirstChild("TargetGui") then return end
+	if not target or not target:FindFirstChild("Head") or target:FindFirstChild("TargetGui") then return end
 
-	local bb = Instance.new("BillboardGui", target)
+	local bb = Instance.new("BillboardGui")
 	bb.Name = "TargetGui"
 	bb.Size = UDim2.new(4, 0, 4, 0)
 	bb.AlwaysOnTop = true
 	bb.Adornee = target.Head
+	bb.Parent = target
 
-	local frame = Instance.new("Frame", bb)
+	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, 0, 1, 0)
 	frame.BackgroundTransparency = 0.5
 	frame.BackgroundColor3 = Color3.new(1, 0, 0)
 	frame.BorderSizePixel = 0
+	frame.Parent = bb
 end
 
--- Удаление рамки
+-- Очистка рамок
 local function clearIndicators()
-	for _, model in pairs(workspace.Live:GetChildren()) do
-		if model:FindFirstChild("TargetGui") then
-			model.TargetGui:Destroy()
-		end
+	local live = workspace:FindFirstChild("Live")
+	if not live then return end
+
+	for _, model in pairs(live:GetChildren()) do
+		local gui = model:FindFirstChild("TargetGui")
+		if gui then gui:Destroy() end
 	end
 end
 
--- Поиск цели
+-- Поиск цели перед игроком
 local function findTarget()
 	local cam = workspace.CurrentCamera
 	if not cam then return nil end
 
 	local origin = cam.CFrame.Position
 	local dir = cam.CFrame.LookVector
+	local live = workspace:FindFirstChild("Live")
+
+	if not live then return nil end
 
 	local best, bestDot = nil, -1
-	for _, model in pairs(workspace.Live:GetChildren()) do
+	for _, model in pairs(live:GetChildren()) do
 		local hrp = model:FindFirstChild("HumanoidRootPart")
 		if model ~= player.Character and hrp then
 			local to = (hrp.Position - origin)
@@ -75,75 +87,76 @@ local function findTarget()
 	return best
 end
 
--- Основной скрипт
+-- Главный обработчик телепорта
 local isFrozen = false
 local freezePos = nil
 
 local function setup(char)
 	local humanoid = char:WaitForChild("Humanoid", 5)
 	local root = char:WaitForChild("HumanoidRootPart", 5)
-	local animator = humanoid:FindFirstChildWhichIsA("Animator")
+	if not humanoid or not root then return end
 
-	if not (humanoid and root and animator) then
-		warn("Ошибка инициализации")
+	local animator = humanoid:FindFirstChildWhichIsA("Animator")
+	if not animator then
+		warn("❌ Animator не найден.")
 		return
 	end
 
 	local animationConnection = animator.AnimationPlayed:Connect(function(tr)
-		local id = tr.Animation.AnimationId:match("%d+")
-		if FREEZE_ANIM_IDS[id] then
-			isFrozen = true
+		local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
+		if not id or not FREEZE_ANIM_IDS[id] then return end
 
-			local target = findTarget()
-			if target and target:FindFirstChild("HumanoidRootPart") then
-				local hrp = target.HumanoidRootPart
-				local back = -hrp.CFrame.LookVector * 3
-				local pos = hrp.Position + back + Vector3.new(0, 2, 0)
-				local look = hrp.CFrame.LookVector
+		isFrozen = true
 
-				task.wait(1) -- ЗАДЕРЖКА 0.5 секунд перед телепортом
+		local target = findTarget()
+		if target and target:FindFirstChild("HumanoidRootPart") then
+			local hrp = target.HumanoidRootPart
+			local back = -hrp.CFrame.LookVector * 3
+			local pos = hrp.Position + back + Vector3.new(0, 2, 0)
+			local look = hrp.CFrame.LookVector
 
-				local newCFrame = CFrame.new(pos, pos + look)
-				root.CFrame = newCFrame
-				root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+			task.wait(0.5)
 
-				local cam = workspace.CurrentCamera
-				if cam then cam.CFrame = newCFrame end
+			local newCFrame = CFrame.new(pos, pos + look)
+			root.CFrame = newCFrame
+			root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
 
-				freezePos = pos
-			else
-				freezePos = root.Position
-			end
+			local cam = workspace.CurrentCamera
+			if cam then cam.CFrame = newCFrame end
 
-			local stoppedConnection = tr.Stopped:Connect(function()
-				isFrozen = false
-				freezePos = nil
-				clearIndicators()
-			end)
-			table.insert(connections, stoppedConnection)
+			freezePos = pos
+		else
+			freezePos = root.Position
 		end
+
+		local stoppedConnection = tr.Stopped:Connect(function()
+			isFrozen = false
+			freezePos = nil
+			clearIndicators()
+		end)
+		table.insert(connections, stoppedConnection)
 	end)
 
-local heartbeatConnection = RunService.Heartbeat:Connect(function()
-	if kill or not isFrozen or not freezePos then return end
-	if not char:IsDescendantOf(workspace) then return end
+	local heartbeatConnection = RunService.Heartbeat:Connect(function()
+		if kill or not isFrozen or not freezePos then return end
+		if not char:IsDescendantOf(workspace) then return end
 
-	local target = findTarget()
-	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
+		local target = findTarget()
+		if not target or not target:FindFirstChild("HumanoidRootPart") then return end
 
-	local targetPos = target.HumanoidRootPart.Position
-	local direction = (targetPos - root.Position).Unit
-	local y = root.Position.Y
-	local newPos = Vector3.new(freezePos.X, y, freezePos.Z)
+		local targetPos = target.HumanoidRootPart.Position
+		local direction = (targetPos - root.Position).Unit
+		local y = root.Position.Y
+		local newPos = Vector3.new(freezePos.X, y, freezePos.Z)
 
-	root.CFrame = CFrame.new(newPos, newPos + direction)
-	root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-end)
-
+		root.CFrame = CFrame.new(newPos, newPos + direction)
+		root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+	end)
 
 	local renderConnection = RunService.RenderStepped:Connect(function()
-		if kill then return end
-		findTarget()
+		if not kill then
+			findTarget()
+		end
 	end)
 
 	table.insert(connections, animationConnection)
@@ -151,22 +164,24 @@ end)
 	table.insert(connections, renderConnection)
 end
 
--- Инициализация
+-- Инициализация на существующем персонаже
 if player.Character then
 	task.spawn(setup, player.Character)
 end
+
+-- Подключение к новому персонажу
 local characterConnection = player.CharacterAdded:Connect(setup)
 table.insert(connections, characterConnection)
 
--- Кнопка отключения
+-- Обработка нажатия кнопки отключения
 btn.MouseButton1Click:Connect(function()
 	kill = true
-	for _, connection in pairs(connections) do
-		if connection then
-			connection:Disconnect()
+	for _, c in ipairs(connections) do
+		if typeof(c) == "RBXScriptConnection" then
+			pcall(function() c:Disconnect() end)
 		end
 	end
-	connections = {}
+	table.clear(connections)
 	isFrozen = false
 	freezePos = nil
 	clearIndicators()
