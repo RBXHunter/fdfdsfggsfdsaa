@@ -1,6 +1,4 @@
 -- Скрипт замены анимации для главного загрузчика
--- Хостится на raw GitHub: https://raw.githubusercontent.com/username/repository/main/4skill_sonic.lua
-
 local Players = game:GetService("Players")
 local task = task
 
@@ -20,7 +18,6 @@ local function handleAnimations(character)
     local humanoid = character:WaitForChild("Humanoid", 5)
     local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
     if not animator then
-        -- Без предупреждений в консоль
         return
     end
 
@@ -67,8 +64,6 @@ local function cleanup()
         end
     end
 end
-
-game:BindToClose(cleanup)
 
 task.spawn(function()
     while isEnabled() do
