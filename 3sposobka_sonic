@@ -19,12 +19,7 @@ local FLY_SPEED = 150
 local isFlying = false
 local flyEndTime = 0
 
-local function debugPrint(...)
-    print("[FlightScript]", ...)
-end
-
 local function setupCharacter(char)
-    debugPrint("Character loaded:", char.Name)
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
 
@@ -32,23 +27,18 @@ local function setupCharacter(char)
     if not animator then
         animator = Instance.new("Animator")
         animator.Parent = humanoid
-        debugPrint("Animator не найден, создали новый")
     end
 
     animator.AnimationPlayed:Connect(function(track)
         if not _G.isScriptEnabled then return end
         local animId = track.Animation.AnimationId:gsub("rbxassetid://", "")
-        debugPrint("Анимация запущена:", animId)
 
         if FLY_ANIM_IDS[animId] then
             if isFlying then
-                debugPrint("Полёт уже активен, новый запуск игнорируется")
                 return
             end
-            debugPrint("Анимация полёта обнаружена, старт через", FLY_DELAY, "сек")
             task.delay(FLY_DELAY, function()
                 if not _G.isScriptEnabled or isFlying then return end
-                debugPrint("Старт полёта на", FLY_DURATION, "сек")
                 isFlying = true
                 flyEndTime = tick() + FLY_DURATION
             end)
@@ -68,7 +58,6 @@ RunService.RenderStepped:Connect(function()
             if rootPart then
                 rootPart.Velocity = Vector3.new(0, 0, 0)
             end
-            debugPrint("Полёт остановлен из-за отключения скрипта")
         end
         return
     end
@@ -78,7 +67,6 @@ RunService.RenderStepped:Connect(function()
     if tick() > flyEndTime then
         isFlying = false
         rootPart.Velocity = Vector3.new(0, 0, 0)
-        debugPrint("Полёт завершён по времени")
         return
     end
 
