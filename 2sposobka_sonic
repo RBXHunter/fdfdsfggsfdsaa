@@ -1,5 +1,3 @@
-
-
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local task = task
@@ -48,7 +46,6 @@ local function setup()
 
     local char, humanoid, animator = waitForCharacterAndAnimator()
     if not animator then
-        print("хуй")
         return
     end
 
@@ -96,5 +93,3 @@ task.spawn(function()
         end
     end
 end)
-
-game:BindToClose(cleanup)
