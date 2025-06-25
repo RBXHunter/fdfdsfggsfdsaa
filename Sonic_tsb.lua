@@ -90,11 +90,6 @@ local function loadScripts()
         end)
 
         if success then
-            print("✅ Скрипт #" .. i .. " загружен: " .. url)
-        else
-            warn("⚠️ Ошибка загрузки скрипта #" .. i .. ": " .. url .. " | " .. tostring(result))
-        end
-
         task.wait(0.2)
     end
 end
@@ -130,7 +125,6 @@ button.MouseButton1Click:Connect(function()
     if screenGui then
         screenGui:Destroy()
     end
-    print("🛑 Все скрипты отключены, эффекты очищены, интерфейс удалён")
 end)
 
 -- Очистка при выходе игрока
