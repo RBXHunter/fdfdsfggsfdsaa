@@ -1,26 +1,18 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+
 local player = Players.LocalPlayer
-
--- Глобальные переменные
-_G.kill = false
-_G.isScriptEnabled = true
-
 local FREEZE_ANIM_IDS = {
 	["13376869471"] = true,
 	["13309500827"] = true
 }
 
-local connections = {}
 local isFrozen = false
 local freezePos = nil
+local kill = false
+local connections = {}
 
--- Проверка статуса убийства
-local function isKilled()
-	return _G.kill == true or _G.isScriptEnabled == false
-end
-
--- Создание рамки на цели
+-- Helper: create indicator on target
 local function createTargetIndicator(target)
 	if not target or not target:FindFirstChild("Head") or target:FindFirstChild("TargetGui") then return end
 
@@ -39,18 +31,15 @@ local function createTargetIndicator(target)
 	frame.Parent = bb
 end
 
--- Очистка рамок
 local function clearIndicators()
 	local live = workspace:FindFirstChild("Live")
 	if not live then return end
-
 	for _, model in pairs(live:GetChildren()) do
 		local gui = model:FindFirstChild("TargetGui")
 		if gui then gui:Destroy() end
 	end
 end
 
--- Поиск цели перед игроком
 local function findTarget()
 	local cam = workspace.CurrentCamera
 	if not cam then return nil end
@@ -58,7 +47,6 @@ local function findTarget()
 	local origin = cam.CFrame.Position
 	local dir = cam.CFrame.LookVector
 	local live = workspace:FindFirstChild("Live")
-
 	if not live then return nil end
 
 	local best, bestDot = nil, -1
@@ -82,7 +70,6 @@ local function findTarget()
 	return best
 end
 
--- Главный обработчик
 local function setup(char)
 	local humanoid = char:WaitForChild("Humanoid", 5)
 	local root = char:WaitForChild("HumanoidRootPart", 5)
@@ -95,6 +82,8 @@ local function setup(char)
 	end
 
 	local animationConnection = animator.AnimationPlayed:Connect(function(tr)
+		if kill or not _G.isScriptEnabled then return end
+
 		local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
 		if not id or not FREEZE_ANIM_IDS[id] then return end
 
@@ -107,9 +96,8 @@ local function setup(char)
 			local pos = hrp.Position + back + Vector3.new(0, 2, 0)
 			local look = hrp.CFrame.LookVector
 
-			task.delay(0.5, function()
-				if not char:IsDescendantOf(workspace) or isKilled() then return end
-
+			task.delay(0.3, function()
+				if kill or not _G.isScriptEnabled or not char:IsDescendantOf(workspace) then return end
 				local newCFrame = CFrame.new(pos, pos + look)
 				root.CFrame = newCFrame
 				root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
@@ -133,12 +121,13 @@ local function setup(char)
 		end
 
 		local stoppedConnection = tr.Stopped:Connect(resetFreeze)
-		task.delay(1, resetFreeze)
 		table.insert(connections, stoppedConnection)
+
+		task.delay(1, resetFreeze)
 	end)
 
 	local heartbeatConnection = RunService.Heartbeat:Connect(function()
-		if isKilled() or not isFrozen or not freezePos then return end
+		if kill or not _G.isScriptEnabled or not isFrozen or not freezePos then return end
 		if not char:IsDescendantOf(workspace) then return end
 
 		local target = findTarget()
@@ -154,7 +143,7 @@ local function setup(char)
 	end)
 
 	local renderConnection = RunService.RenderStepped:Connect(function()
-		if not isKilled() then
+		if not kill and _G.isScriptEnabled then
 			findTarget()
 		end
 	end)
@@ -164,20 +153,34 @@ local function setup(char)
 	table.insert(connections, renderConnection)
 end
 
+-- Initial setup
 if player.Character then
 	task.spawn(setup, player.Character)
 end
 
-local characterConnection = player.CharacterAdded:Connect(setup)
-table.insert(connections, characterConnection)
-
--- Глобальная очистка для кнопки
-function _G.CleanupFreezeTeleportScript()
-	_G.kill = true
-	isFrozen = false
-	freezePos = nil
-	for _, c in pairs(connections) do
-		if c then c:Disconnect() end
+local charConnection = player.CharacterAdded:Connect(function(char)
+	if not kill and _G.isScriptEnabled then
+		setup(char)
 	end
-	clearIndicators()
-end
+end)
+
+table.insert(connections, charConnection)
+
+-- Автоматическое завершение, если главный скрипт выключен
+task.spawn(function()
+	while not kill do
+		if not _G.isScriptEnabled then
+			kill = true
+			for _, conn in pairs(connections) do
+				if conn and typeof(conn) == "RBXScriptConnection" and conn.Connected then
+					pcall(function() conn:Disconnect() end)
+				end
+			end
+			connections = {}
+			clearIndicators()
+			warn("🛑")
+			break
+		end
+		task.wait(0.5)
+	end
+end)
