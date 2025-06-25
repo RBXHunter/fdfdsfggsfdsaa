@@ -2,13 +2,23 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
+-- Глобальные переменные
+_G.kill = false
+_G.isScriptEnabled = true
+
 local FREEZE_ANIM_IDS = {
 	["13376869471"] = true,
 	["13309500827"] = true
 }
 
-local kill = false
 local connections = {}
+local isFrozen = false
+local freezePos = nil
+
+-- Проверка статуса убийства
+local function isKilled()
+	return _G.kill == true or _G.isScriptEnabled == false
+end
 
 -- Создание рамки на цели
 local function createTargetIndicator(target)
@@ -72,16 +82,19 @@ local function findTarget()
 	return best
 end
 
--- Главный обработчик телепорта
-local isFrozen = false
-local freezePos = nil
-
+-- Главный обработчик
 local function setup(char)
 	local humanoid = char:WaitForChild("Humanoid", 5)
 	local root = char:WaitForChild("HumanoidRootPart", 5)
 	if not humanoid or not root then return end
 
-	local function onAnimationPlayed(tr)
+	local animator = humanoid:FindFirstChildWhichIsA("Animator")
+	if not animator then
+		warn("❌ Animator не найден.")
+		return
+	end
+
+	local animationConnection = animator.AnimationPlayed:Connect(function(tr)
 		local id = tr.Animation and tr.Animation.AnimationId and tr.Animation.AnimationId:match("%d+")
 		if not id or not FREEZE_ANIM_IDS[id] then return end
 
@@ -95,7 +108,7 @@ local function setup(char)
 			local look = hrp.CFrame.LookVector
 
 			task.delay(1.5, function()
-				if not char:IsDescendantOf(workspace) then return end
+				if not char:IsDescendantOf(workspace) or isKilled() then return end
 
 				local newCFrame = CFrame.new(pos, pos + look)
 				root.CFrame = newCFrame
@@ -120,16 +133,12 @@ local function setup(char)
 		end
 
 		local stoppedConnection = tr.Stopped:Connect(resetFreeze)
-		task.delay(3, resetFreeze)
-
+		task.delay(1, resetFreeze)
 		table.insert(connections, stoppedConnection)
-	end
-
-	-- ❗ Подключаем к Humanoid.AnimationPlayed (работает в R6)
-	local animationConnection = humanoid.AnimationPlayed:Connect(onAnimationPlayed)
+	end)
 
 	local heartbeatConnection = RunService.Heartbeat:Connect(function()
-		if kill or not isFrozen or not freezePos then return end
+		if isKilled() or not isFrozen or not freezePos then return end
 		if not char:IsDescendantOf(workspace) then return end
 
 		local target = findTarget()
@@ -145,35 +154,7 @@ local function setup(char)
 	end)
 
 	local renderConnection = RunService.RenderStepped:Connect(function()
-		if not kill then
-			findTarget()
-		end
-	end)
-
-	table.insert(connections, animationConnection)
-	table.insert(connections, heartbeatConnection)
-	table.insert(connections, renderConnection)
-end
-
-
-	local heartbeatConnection = RunService.Heartbeat:Connect(function()
-		if kill or not isFrozen or not freezePos then return end
-		if not char:IsDescendantOf(workspace) then return end
-
-		local target = findTarget()
-		if not target or not target:FindFirstChild("HumanoidRootPart") then return end
-
-		local targetPos = target.HumanoidRootPart.Position
-		local direction = (targetPos - root.Position).Unit
-		local y = root.Position.Y
-		local newPos = Vector3.new(freezePos.X, y, freezePos.Z)
-
-		root.CFrame = CFrame.new(newPos, newPos + direction)
-		root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-	end)
-
-	local renderConnection = RunService.RenderStepped:Connect(function()
-		if not kill then
+		if not isKilled() then
 			findTarget()
 		end
 	end)
@@ -189,3 +170,14 @@ end
 
 local characterConnection = player.CharacterAdded:Connect(setup)
 table.insert(connections, characterConnection)
+
+-- Глобальная очистка для кнопки
+function _G.CleanupFreezeTeleportScript()
+	_G.kill = true
+	isFrozen = false
+	freezePos = nil
+	for _, c in pairs(connections) do
+		if c then c:Disconnect() end
+	end
+	clearIndicators()
+end
