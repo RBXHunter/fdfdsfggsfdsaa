@@ -4,30 +4,28 @@
 local Players = game:GetService("Players")
 local task = task
 
--- Проверка на отключение скриптов
-if not _G.isScriptEnabled then return end
-
 local player = Players.LocalPlayer
 
--- Список соединений
 local connections = {}
 
--- Анимации
 local OLD_ANIMATION_ID = "rbxassetid://13501296372" -- 4 skill
 local NEW_ANIMATION_ID = "rbxassetid://16746824621" -- 4 skill bang
 
--- Обработка замены анимации
+local function isEnabled()
+    return _G.isScriptEnabled ~= false
+end
+
 local function handleAnimations(character)
-    if not _G.isScriptEnabled then return end
+    if not isEnabled() then return end
     local humanoid = character:WaitForChild("Humanoid", 5)
     local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
     if not animator then
-        warn("Ошибка: Animator не найден")
+        -- Без предупреждений в консоль
         return
     end
 
     local animationConnection = animator.AnimationPlayed:Connect(function(track)
-        if not _G.isScriptEnabled then return end
+        if not isEnabled() then return end
         if track.Animation.AnimationId == OLD_ANIMATION_ID then
             track:Stop()
 
@@ -42,18 +40,18 @@ local function handleAnimations(character)
     table.insert(connections, animationConnection)
 end
 
--- Инициализация
 if player.Character then
     task.spawn(handleAnimations, player.Character)
 end
 local characterConnection = player.CharacterAdded:Connect(handleAnimations)
 table.insert(connections, characterConnection)
 
--- Очистка при отключении скрипта
 local function cleanup()
     for _, connection in pairs(connections) do
         if connection then
-            connection:Disconnect()
+            pcall(function()
+                connection:Disconnect()
+            end)
         end
     end
     connections = {}
@@ -70,10 +68,10 @@ local function cleanup()
     end
 end
 
--- Отслеживание отключения через главный загрузчик
 game:BindToClose(cleanup)
+
 task.spawn(function()
-    while _G.isScriptEnabled do
+    while isEnabled() do
         task.wait(0.5)
     end
     cleanup()
