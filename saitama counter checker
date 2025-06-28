@@ -49,7 +49,7 @@ local function createBlueMark(character)
     local label = Instance.new("TextLabel", gui)
     label.Size = UDim2.new(1,0,1,0)
     label.BackgroundTransparency = 1
-    label.Text = "имя"
+    label.Text = "Saitama Ult"
     label.TextScaled = true
     label.Font = Enum.Font.SourceSansBold
     label.TextColor3 = Color3.new(0,0.5,1)
