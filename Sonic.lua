@@ -8,7 +8,6 @@ local playerGui = player:WaitForChild("PlayerGui", 5)
 
 -- Проверка доступности PlayerGui
 if not playerGui then
-    warn("PlayerGui не найден!")
     return
 end
 
@@ -113,7 +112,6 @@ local scripts = {
             local animator = humanoid:FindFirstChildWhichIsA("Animator")
 
             if not (humanoid and root and animator) then
-                warn("Ошибка инициализации телепортации")
                 return
             end
 
@@ -127,10 +125,10 @@ local scripts = {
                         local hrp = currentTarget.HumanoidRootPart
                         local back = -hrp.CFrame.LookVector * 3
                         local pos = hrp.Position + back + Vector3.new(0, 2, 0)
-                        local targetPos = hrp.Position -- Смотрим в сторону игрока
+                        local targetPos = hrp.Position
 
                         local newCFrame = CFrame.new(pos, targetPos)
-                        task.wait(0.2) -- Задержка 0.2 секунды перед телепортацией
+                        task.wait(0.2)
                         if not _G.isScriptEnabled then return end
                         root.CFrame = newCFrame
                         root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
@@ -152,7 +150,6 @@ local scripts = {
                             clearIndicators()
                             return
                         end
-                        -- Продолжаем смотреть в сторону игрока еще 0.1 секунды
                         lookAtTargetUntil = tick() + 0.1
                         task.delay(0.1, function()
                             if not _G.isScriptEnabled then return end
@@ -180,7 +177,7 @@ local scripts = {
 
                 local hrp = currentTarget.HumanoidRootPart
                 local pos = root.Position
-                local targetPos = hrp.Position -- Смотрим в сторону игрока
+                local targetPos = hrp.Position
                 root.CFrame = CFrame.new(Vector3.new(freezePos.X, pos.Y, freezePos.Z), targetPos)
                 root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
             end)
@@ -266,11 +263,9 @@ local scripts = {
         local connections = {}
 
         local function setupCharacter(char)
-            print("[FlightScript] Инициализация персонажа:", char.Name)
             local humanoid = char:WaitForChild("Humanoid", 5)
             local rootPart = char:WaitForChild("HumanoidRootPart", 5)
             if not (humanoid and rootPart) then
-                warn("[FlightScript] Ошибка: Humanoid или HumanoidRootPart не найдены")
                 return
             end
 
@@ -278,29 +273,22 @@ local scripts = {
             if not animator then
                 animator = Instance.new("Animator")
                 animator.Parent = humanoid
-                print("[FlightScript] Создан новый Animator")
             end
 
             local animConnection = animator.AnimationPlayed:Connect(function(track)
                 if not _G.isScriptEnabled then
-                    print("[FlightScript] Скрипт отключен, игнорируем анимацию")
                     return
                 end
                 local animId = track.Animation.AnimationId:gsub("rbxassetid://", "")
-                print("[FlightScript] Обнаружена анимация:", animId)
 
                 if FLY_ANIM_IDS[animId] then
                     if isFlying then
-                        print("[FlightScript] Полет уже активен, игнорируем")
                         return
                     end
-                    print("[FlightScript] Анимация полета обнаружена, старт через", FLY_DELAY, "сек")
                     task.delay(FLY_DELAY, function()
                         if not _G.isScriptEnabled or isFlying then
-                            print("[FlightScript] Полет отменен: скрипт отключен или уже летим")
                             return
                         end
-                        print("[FlightScript] Старт полета на", FLY_DURATION, "сек")
                         isFlying = true
                         flyEndTime = tick() + FLY_DURATION
                     end)
@@ -314,7 +302,6 @@ local scripts = {
                         isFlying = false
                         if rootPart then
                             rootPart.Velocity = Vector3.new(0, 0, 0)
-                            print("[FlightScript] Полет остановлен: скрипт отключен")
                         end
                     end
                     return
@@ -322,27 +309,23 @@ local scripts = {
                 if not isFlying then return end
                 if not humanoid or not rootPart or not char:IsDescendantOf(workspace) then
                     isFlying = false
-                    print("[FlightScript] Полет остановлен: персонаж недоступен")
                     return
                 end
 
                 if tick() > flyEndTime then
                     isFlying = false
                     rootPart.Velocity = Vector3.new(0, 0, 0)
-                    print("[FlightScript] Полет завершен по времени")
                     return
                 end
 
                 local cam = workspace.CurrentCamera
                 if not cam then
-                    print("[FlightScript] Камера недоступна")
                     return
                 end
 
                 local look = cam.CFrame.LookVector
                 local velocity = look * FLY_SPEED
                 rootPart.Velocity = velocity
-                print("[FlightScript] Установлена скорость полета:", velocity)
             end)
             table.insert(connections, heartbeatConnection)
         end
@@ -354,7 +337,6 @@ local scripts = {
         end
         local charConnection = player.CharacterAdded:Connect(function(char)
             if not _G.isScriptEnabled then
-                print("[FlightScript] Скрипт отключен, пропуск инициализации персонажа")
                 return
             end
             setupCharacter(char)
@@ -580,7 +562,6 @@ end
 local function loadScripts()
     for i, scriptCode in ipairs(scripts) do
         if not _G.isScriptEnabled then
-            warn("Загрузка скриптов прервана: isScriptEnabled = false")
             break
         end
 
@@ -588,14 +569,11 @@ local function loadScripts()
             local func = loadstring(scriptCode)
             if func then
                 func()
-                print("Успешно выполнен скрипт #" .. i)
             else
-                warn("Не удалось создать функцию для скрипта #" .. i)
             end
         end)
 
         if not success then
-            warn("Ошибка выполнения скрипта #" .. i .. ": " .. tostring(result))
         end
         task.wait(0.2)
     end
@@ -614,7 +592,6 @@ table.insert(connections, characterConnection)
 task.spawn(function()
     local success, err = pcall(loadScripts)
     if not success then
-        warn("Ошибка при запуске loadScripts: " .. tostring(err))
     end
 end)
 
@@ -633,7 +610,6 @@ button.MouseButton1Click:Connect(function()
     if screenGui then
         screenGui:Destroy()
     end
-    print("Все скрипты остановлены")
 end)
 
 -- Очистка при выходе игрока
