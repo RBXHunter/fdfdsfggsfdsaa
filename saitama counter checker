@@ -1,0 +1,184 @@
+local Workspace = game:GetService("Workspace")
+local CoreGui   = game:GetService("CoreGui")
+
+-- Настройки
+local SAITAMA_ULT_ID = "rbxassetid://12447707844"
+local BLOCKING_ANIMATIONS = {
+    ["rbxassetid://11365563255"] = true,
+    ["rbxassetid://12983333733"] = true,
+    ["rbxassetid://13927612951"] = true,
+}
+
+local running = true
+
+-- Создаёт RedMark над головой и удаляет его через 6 сек
+local function createRedMark(character)
+    local head = character:FindFirstChild("Head")
+    if not head or head:FindFirstChild("RedMark") then return end
+
+    local gui = Instance.new("BillboardGui", head)
+    gui.Name = "RedMark"
+    gui.Size = UDim2.new(0,100,0,50)
+    gui.StudsOffset = Vector3.new(0,3,0)
+    gui.AlwaysOnTop = true
+
+    local label = Instance.new("TextLabel", gui)
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = "Counter!"
+    label.TextScaled = true
+    label.Font = Enum.Font.SourceSansBold
+    label.TextColor3 = Color3.new(1,0,0)
+
+    task.delay(7, function()
+        if gui.Parent then gui:Destroy() end
+    end)
+end
+
+-- Создаёт BlueMark над головой
+local function createBlueMark(character)
+    local head = character:FindFirstChild("Head")
+    if not head or head:FindFirstChild("BlueMark") then return end
+
+    local gui = Instance.new("BillboardGui", head)
+    gui.Name = "BlueMark"
+    gui.Size = UDim2.new(0,100,0,50)
+    gui.StudsOffset = Vector3.new(0,3,0)
+    gui.AlwaysOnTop = true
+
+    local label = Instance.new("TextLabel", gui)
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = "имя"
+    label.TextScaled = true
+    label.Font = Enum.Font.SourceSansBold
+    label.TextColor3 = Color3.new(0,0.5,1)
+end
+
+-- Возвращает два флага: играет ли Saitama Ult, и есть ли блокирующая анимация
+local function getAnimationStates(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return false,false end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return false,false end
+
+    local isSaitama, hasBlocking = false, false
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        if track.Animation then
+            local id = track.Animation.AnimationId
+            if id == SAITAMA_ULT_ID then
+                isSaitama = true
+            elseif BLOCKING_ANIMATIONS[id] then
+                hasBlocking = true
+            end
+        end
+    end
+    return isSaitama, hasBlocking
+end
+
+-- Основная проверка одного персонажа
+local function checkCharacter(character)
+    if not character:IsA("Model") then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+
+    local hasCounter = character:FindFirstChild("Counter") ~= nil
+
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+
+    local isSaitamaPlaying = false
+    local isBlockingPlaying = false
+
+    if animator then
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            if track.Animation then
+                local id = track.Animation.AnimationId
+
+                if id == SAITAMA_ULT_ID then
+                    isSaitamaPlaying = true
+                elseif BLOCKING_ANIMATIONS[id] then
+                    isBlockingPlaying = true
+                    break
+                end
+            end
+        end
+    end
+
+    local oldBlue = head:FindFirstChild("BlueMark")
+
+    -- Если есть Counter или блокирующая анимация — удаляем синюю метку (если она есть)
+    if oldBlue and (hasCounter or isBlockingPlaying) then
+        oldBlue:Destroy()
+    end
+
+    -- Если есть Counter — создаём красную метку и выходим
+    if hasCounter then
+        createRedMark(character)
+        return
+    end
+
+    -- Если ульта играет или синяя метка уже есть — создаём синюю метку (если её нет)
+    -- Таким образом синяя метка остается даже если ульта закончилась, пока не появится Counter или блокирующая анимация
+    if (isSaitamaPlaying or oldBlue) and not hasCounter and not isBlockingPlaying then
+        if not oldBlue then
+            createBlueMark(character)
+        end
+
+        local oldRed = head:FindFirstChild("RedMark")
+        if oldRed then oldRed:Destroy() end
+
+        return
+    end
+
+    -- Иначе убираем все метки
+    local oldRed = head:FindFirstChild("RedMark")
+    if oldRed then oldRed:Destroy() end
+    if oldBlue then oldBlue:Destroy() end
+end
+
+-- Кнопка Kill Script
+local function createKillButton()
+    local screen = Instance.new("ScreenGui", CoreGui)
+    screen.Name = "KillScriptUI"
+    screen.ResetOnSpawn = false
+
+    local btn = Instance.new("TextButton", screen)
+    btn.Size = UDim2.new(0,120,0,30)
+    btn.Position = UDim2.new(0,10,0,10)
+    btn.BackgroundColor3 = Color3.new(0.2,0.2,0.2)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.Text = "Kill Script"
+
+    btn.MouseButton1Click:Connect(function()
+        running = false
+        screen:Destroy()
+        local live = Workspace:FindFirstChild("Live")
+        if live then
+            for _, c in ipairs(live:GetChildren()) do
+                local h = c:FindFirstChild("Head")
+                if h then
+                    local r = h:FindFirstChild("RedMark")
+                    if r then r:Destroy() end
+                    local b = h:FindFirstChild("BlueMark")
+                    if b then b:Destroy() end
+                end
+            end
+        end
+    end)
+end
+
+-- Запуск
+createKillButton()
+while running do
+    local live = Workspace:FindFirstChild("Live")
+    if live then
+        for _, character in ipairs(live:GetChildren()) do
+            checkCharacter(character)
+        end
+    end
+    task.wait(0.25)
+end
