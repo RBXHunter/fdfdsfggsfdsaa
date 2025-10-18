@@ -1,0 +1,267 @@
+local re = game:GetService("Workspace")
+local uis = game:GetService("UserInputService")
+local _Ins, _CF_new, _VTR_new = Instance.new, CFrame.new, Vector3.new
+local mas = _Ins("Model", game:GetService("Lighting"))
+
+-- Удаляем sethiddenproperty, так как он ненадежен и не нужен для основной функциональности
+-- local con = getfenv().sethiddenproperty
+
+local sandbox = function(var, func)
+    local env = getfenv(func)
+    local newenv = setmetatable({}, {
+        __index = function(self, k)
+            if k == "script" then
+                return var
+            else
+                return env[k]
+            end
+        end,
+    })
+    setfenv(func, newenv)
+    return func
+end
+local cors = {}
+local _Name = "telekinesis pm"
+
+-- Создание инструмента и его компонентов
+local Tool0 = _Ins("Tool")
+local Part1 = _Ins("Part")
+local Script2 = _Ins("Script")
+local LocalScript3 = _Ins("LocalScript")
+local selectionbox = _Ins("SelectionBox")
+selectionbox.LineThickness = 0.1
+selectionbox.Color3 = Color3.fromRGB(255, 255, 0)
+local RunService = game:GetService("RunService")
+
+Tool0.Name = _Name
+Tool0.Parent = mas
+Tool0.Grip = _CF_new(0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+Tool0.GripPos = _VTR_new(0, 0, 1)
+Part1.Name = "Handle"
+Part1.Parent = Tool0
+Part1.CFrame = _CF_new(-3.5, 5.3, -3.5, 1, 0, 0, 0, -1, 0, 0, 0, -1)
+Part1.Orientation = _VTR_new(0, 180, 180)
+Part1.Position = _VTR_new(-3.5, 5.3, -3.5)
+Part1.Rotation = _VTR_new(-180, 0, 0)
+Part1.Color = Color3.new(0.972549, 0.972549, 0.972549)
+Part1.Transparency = 1
+Part1.Size = _VTR_new(1, 1, 1)
+Part1.BottomSurface = Enum.SurfaceType.Smooth
+Part1.BrickColor = BrickColor.new("Institutional white")
+Part1.Locked = true
+Part1.TopSurface = Enum.SurfaceType.Smooth
+local mb = uis.TouchEnabled
+
+Script2.Name = "LineConnect"
+Script2.Parent = Tool0
+local Sound = _Ins("Sound", game.Workspace)
+Sound.SoundId = "rbxassetid://18604320771"
+Sound:Play()
+
+-- Создаем необходимые ObjectValue заранее
+local Part1Val = _Ins("ObjectValue", Script2)
+Part1Val.Name = "Part1"
+Part1Val.Value = Part1
+local Part2Val = _Ins("ObjectValue", Script2)
+Part2Val.Name = "Part2"
+local ParVal = _Ins("ObjectValue", Script2)
+ParVal.Name = "Par"
+ParVal.Value = game.Workspace
+local ColorVal = _Ins("ObjectValue", Script2)
+ColorVal.Name = "Color"
+ColorVal.Value = Part1
+
+-- Логика лазера
+table.insert(cors, sandbox(Script2, function()
+    local check = script.Part2
+    local part1 = script.Part1.Value
+    local part2 = script.Part2.Value
+    local parent = script.Par.Value
+    local color = script.Color
+    local line = _Ins("Part")
+    line.TopSurface = Enum.SurfaceType.Smooth
+    line.BottomSurface = Enum.SurfaceType.Smooth
+    line.Reflectance = 0.5
+    line.Name = "Laser"
+    line.Locked = true
+    line.CanCollide = false
+    line.Anchored = true
+    line.Size = _VTR_new(1, 1, 1)
+    local mesh = _Ins("BlockMesh")
+    mesh.Parent = line
+
+    while true do
+        if not check.Value or not part1 or not part2 or not parent then break end
+        if not part1.Parent or not part2.Parent or not parent.Parent then break end
+        local lv = _CF_new(part1.Position, part2.Position)
+        local dist = (part1.Position - part2.Position).Magnitude
+        line.Parent = parent
+        line.BrickColor = color.Value.BrickColor
+        line.Reflectance = color.Value.Reflectance
+        line.Transparency = color.Value.Transparency
+        line.CFrame = _CF_new(part1.Position + lv.LookVector * dist / 2)
+        line.CFrame = _CF_new(line.Position, part2.Position)
+        mesh.Scale = _VTR_new(0.25, 0.25, dist)
+        wait()
+    end
+    line:Destroy()
+    script:Destroy()
+end))
+Script2.Disabled = true
+
+LocalScript3.Name = "MainScript"
+LocalScript3.Parent = Tool0
+table.insert(cors, sandbox(LocalScript3, function()
+    wait()
+    local tool = script.Parent
+    local lineconnect = tool.LineConnect
+    local object = nil
+    local mousedown = false
+    local BP = _Ins("BodyPosition")
+    BP.MaxForce = _VTR_new(100000, 100000, 100000) -- Уменьшаем maxForce
+    BP.P = BP.P * 3
+    local dist = nil
+    local point = _Ins("Part")
+    point.Locked = true
+    point.Anchored = true
+    point.Shape = Enum.PartType.Ball
+    point.BrickColor = BrickColor.new("Blue")
+    point.Size = _VTR_new(1, 1, 1)
+    point.CanCollide = false
+    local mesh = _Ins("SpecialMesh")
+    mesh.MeshType = Enum.MeshType.Sphere
+    mesh.Scale = _VTR_new(0.7, 0.7, 0.7)
+    mesh.Parent = point
+    local handle = tool.Handle
+    local front = tool.Handle
+    local color = tool.Handle
+    local objval = nil
+
+    local LineConnect = function(part1, part2, parent)
+        local p1 = _Ins("ObjectValue")
+        p1.Value = part1
+        p1.Name = "Part1"
+        local p2 = _Ins("ObjectValue")
+        p2.Value = part2
+        p2.Name = "Part2"
+        local par = _Ins("ObjectValue")
+        par.Value = parent
+        par.Name = "Par"
+        local col = _Ins("ObjectValue")
+        col.Value = color
+        col.Name = "Color"
+        local s = lineconnect:Clone()
+        s.Disabled = false
+        p1.Parent = s
+        p2.Parent = s
+        par.Parent = s
+        col.Parent = s
+        s.Parent = workspace
+        if part2 == object then
+            objval = p2
+        end
+    end
+
+    local onButton1Down = function(mouse)
+        if mousedown then return end
+        mousedown = true
+        coroutine.resume(coroutine.create(function()
+            local p = point:Clone()
+            p.Parent = tool
+            LineConnect(front, p, workspace)
+            while mousedown do
+                p.Parent = tool
+                if not object then
+                    if not mouse.Target then
+                        local lv = _CF_new(front.Position, mouse.Hit.Position)
+                        p.CFrame = _CF_new(front.Position + lv.LookVector * 1000)
+                    else
+                        p.CFrame = _CF_new(mouse.Hit.Position)
+                    end
+                else
+                    LineConnect(front, object, workspace)
+                    break
+                end
+                wait()
+            end
+            p:Destroy()
+        end))
+        while mousedown do
+            if mouse.Target then
+                local t = mouse.Target
+                if not t.Anchored then
+                    object = t
+                    selectionbox.Adornee = object
+                    dist = (object.Position - front.Position).Magnitude
+                    break
+                end
+            end
+            wait()
+        end
+        while mousedown do
+            if not object or not object.Parent then break end
+            local lv = _CF_new(front.Position, mouse.Hit.Position)
+            BP.Parent = object
+            BP.Position = front.Position + lv.LookVector * dist
+            wait()
+        end
+        BP:Destroy()
+        object = nil
+        if objval then objval.Value = nil end
+        selectionbox.Adornee = nil
+    end
+
+    local onKeyDown = function(key, mouse)
+        key = key:lower()
+        if key == "q" and dist then
+            if dist >= 50 then
+                dist = dist - 50
+            end
+        elseif key == "e" and dist then
+            dist = dist + 50
+        elseif key == "x" and dist then
+            dist = 15
+        elseif key == "y" and dist then
+            dist = 100
+        elseif key == "j" and dist then
+            dist = 5000
+        end
+    end
+
+    local onEquipped = function(mouse)
+        local char = tool.Parent
+        local human = char:FindFirstChildOfClass("Humanoid")
+        if human then
+            human:GetPropertyChangedSignal("Health"):Connect(function()
+                if human.Health <= 0 then
+                    mousedown = false
+                    BP:Destroy()
+                    point:Destroy()
+                    tool:Destroy()
+                end
+            end)
+        end
+        mouse.Button1Down:Connect(function() onButton1Down(mouse) end)
+        mouse.KeyDown:Connect(function(key) onKeyDown(key, mouse) end)
+        mouse.Icon = "rbxasset://textures\\GunCursor.png"
+        if mb then
+            uis.TouchLongPress:Connect(function() onKeyDown("y", mouse) end)
+            uis.TouchEnded:Connect(function() mousedown = false end)
+        else
+            mouse.Button1Up:Connect(function() mousedown = false end)
+        end
+    end
+    tool.Equipped:Connect(onEquipped)
+    tool.Unequipped:Connect(function() mousedown = false end)
+end))
+
+for _, v in pairs(mas:GetChildren()) do
+    v.Parent = game:GetService("Players").LocalPlayer.Backpack
+    pcall(function() v:MakeJoints() end)
+end
+mas:Destroy()
+for _, v in pairs(cors) do
+    spawn(function()
+        pcall(v)
+    end)
+end
