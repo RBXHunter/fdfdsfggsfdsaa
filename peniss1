@@ -214,11 +214,11 @@ table.insert(cors, sandbox(LocalScript3, function()
     local onKeyDown = function(key, mouse)
         key = key:lower()
         if key == "q" and dist then
-            if dist >= 50 then
-                dist = dist - 50
+            if dist >= 500 then
+                dist = dist - 500
             end
         elseif key == "e" and dist then
-            dist = dist + 50
+            dist = dist + 500
         elseif key == "x" and dist then
             dist = 15
         elseif key == "y" and dist then
