@@ -80,13 +80,13 @@ local updateInterval = 2 -- Интервал обновления 2 секунд
 local workspaceSizes = {
     ["Plane Workspace"] = 150,
     ["Helicopter Workspace"] = 100,
-    ["Vehicle Workspace"] = 15,
-    ["Tank Workspace"] = 15,
-    ["Submarine Workspace"] = 150,
+    ["Vehicle Workspace"] = 50,
+    ["Tank Workspace"] = 65,
+    ["Submarine Workspace"] = 250,
     ["RC Workspace"] = 15,
-    ["Hovercraft Workspace"] = 15,
-    ["Drone Workspace"] = 15,
-    ["Boat Workspace"] = 15
+    ["Hovercraft Workspace"] = 55,
+    ["Drone Workspace"] = 55,
+    ["Boat Workspace"] = 90
 }
 
 -- Функция для проверки, принадлежит ли объект группе игрока
