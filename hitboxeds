@@ -1,0 +1,506 @@
+-- LocalScript для инжектора Solara (с поддержкой filesystem)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local excludedPlayers = {"shiniteo2"} -- Добавьте сюда имена игроков для исключения
+
+-- Проверка PlayerGui
+local playerGui = player:WaitForChild("PlayerGui", 5)
+if not playerGui then
+    error("PlayerGui не найден!")
+    return
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Parent = playerGui
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Name = "HitboxGUI"
+
+-- Основной ScrollingFrame
+local frame = Instance.new("ScrollingFrame")
+frame.Size = UDim2.new(0, 350, 0, 500)
+frame.Position = UDim2.new(0.5, -175, 0.5, -250)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 0
+frame.Visible = true
+frame.Parent = gui
+frame.ClipsDescendants = true
+frame.ScrollingDirection = Enum.ScrollingDirection.Y
+frame.ScrollBarThickness = 10
+frame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+frame.ScrollingEnabled = true
+frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+frame.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(80, 80, 80)
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = frame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 40)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 10))
+})
+gradient.Rotation = 45
+gradient.Parent = frame
+
+-- Автоматическая компоновка
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 20)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.VerticalAlignment = Enum.VerticalAlignment.Top
+layout.Parent = frame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 20)
+padding.PaddingLeft = UDim.new(0, 20)
+padding.PaddingRight = UDim.new(0, 20)
+padding.Parent = frame
+
+-- Перетаскивание
+local dragging, dragStart, startPos
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        frame.Position = newPos
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Анимация появления GUI
+frame.Size = UDim2.new(0, 0, 0, 0)
+local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local tween = TweenService:Create(frame, tweenInfo, {Size = UDim2.new(0, 350, 0, 500)})
+tween:Play()
+
+-- Заголовок
+local title = Instance.new("TextLabel")
+title.Text = "Хитбокс Менеджер"
+title.Size = UDim2.new(0.9, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.Visible = true
+title.LayoutOrder = 1
+title.Parent = frame
+
+-- Слайдер
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Size = UDim2.new(0.9, 0, 0, 20)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+sliderFrame.Visible = true
+sliderFrame.LayoutOrder = 2
+sliderFrame.Parent = frame
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 10)
+sliderCorner.Parent = sliderFrame
+
+local sliderButton = Instance.new("ImageButton")
+sliderButton.Size = UDim2.new(0, 30, 0, 30)
+sliderButton.Position = UDim2.new(0, -10, -0.5, 0)
+sliderButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+sliderButton.Visible = true
+sliderButton.Parent = sliderFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 15)
+buttonCorner.Parent = sliderButton
+
+local sizeLabel = Instance.new("TextLabel")
+sizeLabel.Text = "Размер: 1x"
+sizeLabel.Size = UDim2.new(0.9, 0, 0, 30)
+sizeLabel.BackgroundTransparency = 1
+sizeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+sizeLabel.Font = Enum.Font.Gotham
+sizeLabel.TextSize = 16
+sizeLabel.Visible = true
+sizeLabel.LayoutOrder = 3
+sizeLabel.Parent = frame
+
+-- Поле ввода
+local inputBox = Instance.new("TextBox")
+inputBox.Text = "1"
+inputBox.Size = UDim2.new(0.9, 0, 0, 50)
+inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputBox.Font = Enum.Font.Gotham
+inputBox.TextSize = 16
+inputBox.Visible = true
+inputBox.LayoutOrder = 4
+inputBox.Parent = frame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 10)
+inputCorner.Parent = inputBox
+
+local inputStroke = Instance.new("UIStroke")
+inputStroke.Thickness = 1
+inputStroke.Color = Color3.fromRGB(100, 100, 100)
+inputStroke.Parent = inputBox
+
+-- Toggle активации
+local activateToggle = Instance.new("TextButton")
+activateToggle.Text = "Активировать: Выкл"
+activateToggle.Size = UDim2.new(0.9, 0, 0, 50)
+activateToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+activateToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+activateToggle.Font = Enum.Font.Gotham
+activateToggle.TextSize = 16
+activateToggle.Visible = true
+activateToggle.LayoutOrder = 5
+activateToggle.Parent = frame
+
+local activateCorner = Instance.new("UICorner")
+activateCorner.CornerRadius = UDim.new(0, 10)
+activateCorner.Parent = activateToggle
+
+local activateStroke = Instance.new("UIStroke")
+activateStroke.Thickness = 1
+activateStroke.Color = Color3.fromRGB(100, 100, 100)
+activateStroke.Parent = activateToggle
+
+-- Кнопка сохранения
+local saveButton = Instance.new("TextButton")
+saveButton.Text = "Сохранить"
+saveButton.Size = UDim2.new(0.9, 0, 0, 50)
+saveButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+saveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveButton.Font = Enum.Font.Gotham
+saveButton.TextSize = 16
+saveButton.Visible = true
+saveButton.LayoutOrder = 6
+saveButton.Parent = frame
+
+local saveCorner = Instance.new("UICorner")
+saveCorner.CornerRadius = UDim.new(0, 10)
+saveCorner.Parent = saveButton
+
+local saveStroke = Instance.new("UIStroke")
+saveStroke.Thickness = 1
+saveStroke.Color = Color3.fromRGB(100, 100, 100)
+saveStroke.Parent = saveButton
+
+-- Кнопка загрузки
+local loadButton = Instance.new("TextButton")
+loadButton.Text = "Загрузить"
+loadButton.Size = UDim2.new(0.9, 0, 0, 50)
+loadButton.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+loadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadButton.Font = Enum.Font.Gotham
+loadButton.TextSize = 16
+loadButton.Visible = true
+loadButton.LayoutOrder = 7
+loadButton.Parent = frame
+
+local loadCorner = Instance.new("UICorner")
+loadCorner.CornerRadius = UDim.new(0, 10)
+loadCorner.Parent = loadButton
+
+local loadStroke = Instance.new("UIStroke")
+loadStroke.Thickness = 1
+loadStroke.Color = Color3.fromRGB(100, 100, 100)
+loadStroke.Parent = loadButton
+
+-- Кнопка выгрузки
+local unloadButton = Instance.new("TextButton")
+unloadButton.Text = "Выгрузить"
+unloadButton.Size = UDim2.new(0.9, 0, 0, 50)
+unloadButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+unloadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+unloadButton.Font = Enum.Font.Gotham
+unloadButton.TextSize = 16
+unloadButton.Visible = true
+unloadButton.LayoutOrder = 8
+unloadButton.Parent = frame
+
+local unloadCorner = Instance.new("UICorner")
+unloadCorner.CornerRadius = UDim.new(0, 10)
+unloadCorner.Parent = unloadButton
+
+local unloadStroke = Instance.new("UIStroke")
+unloadStroke.Thickness = 1
+unloadStroke.Color = Color3.fromRGB(100, 100, 100)
+unloadStroke.Parent = unloadButton
+
+-- Уведомление с анимацией
+local function showNotification(text)
+    local notification = Instance.new("TextLabel")
+    notification.Text = text
+    notification.Size = UDim2.new(0, 250, 0, 40)
+    notification.Position = UDim2.new(0.5, -125, 0.1, 0)
+    notification.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+    notification.Font = Enum.Font.Gotham
+    notification.TextSize = 14
+    notification.Visible = true
+    notification.Parent = gui
+
+    local notifCorner = Instance.new("UICorner")
+    notifCorner.CornerRadius = UDim.new(0, 10)
+    notifCorner.Parent = notification
+
+    local notifStroke = Instance.new("UIStroke")
+    notifStroke.Thickness = 1
+    notifStroke.Color = Color3.fromRGB(100, 100, 100)
+    notifStroke.Parent = notification
+
+    -- Анимация появления/исчезновения
+    notification.BackgroundTransparency = 1
+    notification.TextTransparency = 1
+    local fadeIn = TweenService:Create(notification, TweenInfo.new(0.3), {BackgroundTransparency = 0, TextTransparency = 0})
+    local fadeOut = TweenService:Create(notification, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1})
+    fadeIn:Play()
+    fadeIn.Completed:Connect(function()
+        wait(1.5)
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            notification:Destroy()
+        end)
+    end)
+end
+
+-- Анимации наведения
+local function animateHover(button, hoverColor)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = button == unloadButton and Color3.fromRGB(200, 50, 50) or button == saveButton and Color3.fromRGB(50, 150, 50) or button == loadButton and Color3.fromRGB(50, 50, 150) or Color3.fromRGB(40, 40, 40)}):Play()
+    end)
+end
+
+animateHover(activateToggle, Color3.fromRGB(60, 60, 60))
+animateHover(saveButton, Color3.fromRGB(80, 180, 80))
+animateHover(loadButton, Color3.fromRGB(80, 80, 180))
+animateHover(unloadButton, Color3.fromRGB(230, 80, 80))
+
+-- Сворачивание по K, активация по L
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.K then
+            frame.Visible = not frame.Visible
+            showNotification(frame.Visible and "GUI открыт" or "GUI свёрнут")
+        elseif input.KeyCode == Enum.KeyCode.L then
+            activated = not activated
+            activateToggle.Text = "Активировать: " .. (activated and "Вкл" or "Выкл")
+            updateHeads(activated)
+            showNotification(activated and "Хитбоксы включены" or "Хитбоксы выключены")
+        end
+    end
+end)
+
+-- Логика хитбоксов
+local currentSize = 1
+local activated = false
+local originalHeads = {}
+
+local function updateHeads(apply)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and not table.find(excludedPlayers, plr.Name) and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                if apply then
+                    if not originalHeads[plr] then
+                        originalHeads[plr] = {size = head.Size, scales = {}, decals = {}, canCollide = head.CanCollide}
+                        for _, attachment in ipairs(head:GetChildren()) do
+                            if attachment:IsA("Attachment") then
+                                originalHeads[plr].scales[attachment] = attachment.CFrame
+                            elseif attachment:IsA("Decal") then
+                                originalHeads[plr].decals[attachment] = {Texture = attachment.Texture, Transparency = attachment.Transparency}
+                            end
+                        end
+                    end
+                    local newSize = Vector3.new(originalHeads[plr].size.X * currentSize, originalHeads[plr].size.Y * currentSize, originalHeads[plr].size.Z * currentSize)
+                    head.Size = newSize
+                    head.CanCollide = false
+                    head.Anchored = false
+                    head.Massless = true
+                else
+                    if originalHeads[plr] then
+                        head.Size = originalHeads[plr].size
+                        head.CanCollide = originalHeads[plr].canCollide
+                        head.Anchored = false
+                        head.Massless = false
+                        for attachment, origCFrame in pairs(originalHeads[plr].scales) do
+                            attachment.CFrame = origCFrame
+                        end
+                        for decal, data in pairs(originalHeads[plr].decals) do
+                            decal.Texture = data.Texture
+                            decal.Transparency = data.Transparency
+                        end
+                        originalHeads[plr] = nil
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Постоянное обновление хитбоксов для новых игроков
+RunService.Stepped:Connect(function()
+    if activated then
+        updateHeads(true)
+    end
+end)
+
+-- Очистка при выходе игрока
+Players.PlayerRemoving:Connect(function(plr)
+    originalHeads[plr] = nil
+end)
+
+-- Слайдер
+local dragging = false
+sliderButton.MouseButton1Down:Connect(function()
+    dragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if dragging then
+        local mousePos = UserInputService:GetMouseLocation()
+        local relPos = (mousePos.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X
+        relPos = math.clamp(relPos, 0, 1)
+        sliderButton.Position = UDim2.new(relPos, -10, -0.5, 0)
+        currentSize = 1 + relPos * 49 -- 1 to 50
+        sizeLabel.Text = "Размер: " .. string.format("%.1fx", currentSize)
+        inputBox.Text = tostring(currentSize)
+        if activated then
+            updateHeads(true)
+        end
+    end
+end)
+
+-- Поле ввода
+inputBox.FocusLost:Connect(function()
+    local num = tonumber(inputBox.Text)
+    if num and num >= 1 and num <= 50 then
+        currentSize = num
+        local relPos = (currentSize - 1) / 49
+        sliderButton.Position = UDim2.new(relPos, -10, -0.5, 0)
+        sizeLabel.Text = "Размер: " .. string.format("%.1fx", currentSize)
+        if activated then
+            updateHeads(true)
+        end
+    else
+        inputBox.Text = tostring(currentSize)
+        showNotification("Введите число от 1 до 50")
+    end
+end)
+
+-- Toggle активации
+activateToggle.MouseButton1Click:Connect(function()
+    activated = not activated
+    activateToggle.Text = "Активировать: " .. (activated and "Вкл" or "Выкл")
+    updateHeads(activated)
+end)
+
+-- Сохранение
+saveButton.MouseButton1Click:Connect(function()
+    local success, err = pcall(saveSettings)
+    if success then
+        showNotification("Настройки сохранены")
+    else
+        showNotification("Ошибка сохранения: " .. tostring(err))
+    end
+end)
+
+-- Загрузка
+loadButton.MouseButton1Click:Connect(function()
+    local success, err = pcall(loadSettings)
+    if success then
+        showNotification("Настройки загружены")
+    else
+        showNotification("Ошибка загрузки: " .. tostring(err))
+    end
+end)
+
+-- Выгрузка
+unloadButton.MouseButton1Click:Connect(function()
+    updateHeads(false)
+    showNotification("Скрипт выгружен")
+    gui:Destroy()
+end)
+
+-- Обработка новых игроков
+Players.PlayerAdded:Connect(function(plr)
+    if activated then
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(1)
+            updateHeads(true)
+        end)
+    end
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(1)
+            updateHeads(true)
+        end)
+    end
+end
+
+-- Save/Load
+local configFile = "headhitbox_config.json"
+local function saveSettings()
+    if not writefile then
+        error("Сохранение не поддерживается!")
+    end
+    local settings = {
+        size = currentSize
+    }
+    writefile(configFile, HttpService:JSONEncode(settings))
+end
+
+local function loadSettings()
+    if not readfile or not isfile(configFile) then
+        error("Конфиг не найден или чтение не поддерживается!")
+    end
+    local data = HttpService:JSONDecode(readfile(configFile))
+    currentSize = data.size or 1
+    sizeLabel.Text = "Размер: " .. string.format("%.1fx", currentSize)
+    inputBox.Text = tostring(currentSize)
+    sliderButton.Position = UDim2.new((currentSize - 1) / 49, -10, -0.5, 0)
+    if activated then
+        updateHeads(true)
+    end
+end
+
+local success, err = pcall(loadSettings)
+if success then
+    showNotification("GUI загружен")
+else
+    showNotification("Ошибка загрузки настроек: " .. tostring(err))
+end
