@@ -79,14 +79,14 @@ local updateInterval = 2 -- Интервал обновления 2 секунд
 -- Таблица размеров для рабочих пространств
 local workspaceSizes = {
     ["Plane Workspace"] = 150,
-    ["Helicopter Workspace"] = 100,
-    ["Vehicle Workspace"] = 50,
-    ["Tank Workspace"] = 65,
+    ["Helicopter Workspace"] = 150,
+    ["Vehicle Workspace"] = 60,
+    ["Tank Workspace"] = 60,
     ["Submarine Workspace"] = 250,
-    ["RC Workspace"] = 15,
-    ["Hovercraft Workspace"] = 55,
-    ["Drone Workspace"] = 55,
-    ["Boat Workspace"] = 90
+    ["RC Workspace"] = 60,
+    ["Hovercraft Workspace"] = 60,
+    ["Drone Workspace"] = 60,
+    ["Boat Workspace"] = 200
 }
 
 -- Функция для проверки, принадлежит ли объект группе игрока
@@ -139,15 +139,14 @@ local function processDroneParts()
     local dronePart = getNil("Part", "Part")
     if dronePart then
         print("Found hidden drone Part:", dronePart:GetFullName())
-        -- Проверяем, принадлежит ли часть модели дрона, не своей группе
         local parentModel = dronePart:FindFirstAncestorOfClass("Model")
         if parentModel and parentModel.Parent.Name == "Drone Workspace" and not isOwnGroup(parentModel) then
-            if not processedParts[dronePart] or processedParts[dronePart].size ~= 15 then
+            if not processedParts[dronePart] or processedParts[dronePart].size ~= 60 then
                 print("Processing drone part:", dronePart:GetFullName())
-                dronePart.Size = Vector3.new(15, 15, 15)
+                dronePart.Size = Vector3.new(60, 60, 60)
                 dronePart.CanCollide = false
                 dronePart.CanQuery = true
-                processedParts[dronePart] = {size = 15}
+                processedParts[dronePart] = {size = 60}
             else
                 print("Skipped already processed drone part:", dronePart:GetFullName())
             end
@@ -159,17 +158,15 @@ local function processDroneParts()
     end
 end
 
--- Функция для проверки и установки SpeedUpgrades для PACV-76 Tempest
-local function processHovercraftSpeed(model)
-    if model.Name == "PACV-76 Tempest" and model.Parent.Name == "Hovercraft Workspace" then
-        local speedUpgrades = model:GetAttribute("SpeedUpgrades")
-        print("Checking SpeedUpgrades for", model.Name, "Current value:", speedUpgrades)
-        if speedUpgrades == nil or speedUpgrades < 10 then
-            model:SetAttribute("SpeedUpgrades", 10)
-            print("Set SpeedUpgrades to 10 for", model.Name)
-        else
-            print("SpeedUpgrades already >= 10 for", model.Name)
-        end
+-- Функция для установки SpeedUpgrades для всех моделей
+local function processSpeedUpgrades(model)
+    local speedUpgrades = model:GetAttribute("SpeedUpgrades")
+    print("Checking SpeedUpgrades for", model.Name, "Current value:", speedUpgrades)
+    if speedUpgrades == nil or speedUpgrades ~= 5 then
+        model:SetAttribute("SpeedUpgrades", 5)
+        print("Set SpeedUpgrades to 5 for", model.Name)
+    else
+        print("SpeedUpgrades already 5 for", model.Name)
     end
 end
 
@@ -239,9 +236,7 @@ local function updateWorkspaces()
             for _, model in ipairs(workspaceFolder:GetChildren()) do
                 if model:IsA("Model") then
                     collectCollisionParts(model, size)
-                    if workspaceName == "Hovercraft Workspace" then
-                        processHovercraftSpeed(model)
-                    end
+                    processSpeedUpgrades(model)
                 end
             end
         else
