@@ -1,308 +1,375 @@
+-- Ultimate ESP + Hitbox | FINAL | СЛАЙДЕР В ПРЕДЕЛАХ | ЦЕЛЫЕ LayoutOrder
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local localPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local workspace = game.Workspace
 
--- Функция getNil для поиска скрытых объектов
-local function getNil(name, class)
-    for _, v in next, getnilinstances() do
-        if v.ClassName == class and v.Name == name then
-            return v
-        end
-    end
-end
-
--- Создание GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ControlGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = localPlayer.PlayerGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 200)
-frame.Position = UDim2.new(0.5, -100, 0.5, -100)
-frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-frame.BorderSizePixel = 2
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0, 0)
-title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Text = "ESP & Collision Control"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-title.Parent = frame
-
-local espButton = Instance.new("TextButton")
-espButton.Size = UDim2.new(0, 180, 0, 40)
-espButton.Position = UDim2.new(0, 10, 0, 40)
-espButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-espButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-espButton.Text = "Toggle Submarine ESP: ON"
-espButton.Font = Enum.Font.SourceSans
-espButton.TextSize = 16
-espButton.Parent = frame
-
-local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 80, 0, 40)
-closeButton.Position = UDim2.new(0, 10, 0, 90)
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.Text = "Close GUI"
-closeButton.Font = Enum.Font.SourceSans
-closeButton.TextSize = 16
-closeButton.Parent = frame
-
-local killButton = Instance.new("TextButton")
-killButton.Size = UDim2.new(0, 80, 0, 40)
-killButton.Position = UDim2.new(0, 110, 0, 90)
-killButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-killButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-killButton.Text = "Kill Script"
-killButton.Font = Enum.Font.SourceSans
-killButton.TextSize = 16
-killButton.Parent = frame
-
--- Переменные для управления
-local connections = {}
-local espElements = {}
-local processedParts = {} -- Кэш обработанных частей
-local isESPEnabled = true
-local isScriptActive = true
-local lastUpdate = 0
-local updateInterval = 2 -- Интервал обновления 2 секунды
-
--- Таблица размеров для рабочих пространств
-local workspaceSizes = {
-    ["Plane Workspace"] = 150,
-    ["Helicopter Workspace"] = 150,
-    ["Vehicle Workspace"] = 60,
-    ["Tank Workspace"] = 60,
-    ["Submarine Workspace"] = 250,
-    ["RC Workspace"] = 60,
-    ["Hovercraft Workspace"] = 60,
-    ["Drone Workspace"] = 60,
-    ["Boat Workspace"] = 200
+-- === Конфиг ===
+local WHITELIST = {XyesosHB11 = true, sosizopy3 = true}
+local EXCLUDED = {shiniteo2 = true}
+local CATEGORIES = {
+    Plane = {ws = "Plane Workspace", size = 150, color = Color3.fromRGB(255,100,100)},
+    Helicopter = {ws = "Helicopter Workspace", size = 150, color = Color3.fromRGB(255,150,0)},
+    Vehicle = {ws = "Vehicle Workspace", size = 60, color = Color3.fromRGB(100,255,100)},
+    Tank = {ws = "Tank Workspace", size = 60, color = Color3.fromRGB(200,200,0)},
+    Submarine = {ws = "Submarine Workspace", size = 250, color = Color3.fromRGB(0,150,255)},
+    RC = {ws = "RC Workspace", size = 60, color = Color3.fromRGB(150,100,255)},
+    Hovercraft = {ws = "Hovercraft Workspace", size = 60, color = Color3.fromRGB(255,100,200)},
+    Drone = {ws = "Drone Workspace", size = 60, color = Color3.fromRGB(0,255,200)},
+    Boat = {ws = "Boat Workspace", size = 200, color = Color3.fromRGB(0,100,255)}
 }
 
--- Функция для проверки, принадлежит ли объект группе игрока
-local function isOwnGroup(obj)
-    local owner = obj:GetAttribute("Owner")
-    local isOwn = owner and tostring(owner) == tostring(localPlayer.Name)
-    print("Checking Owner for", obj.Name, "Owner:", owner, "IsOwnGroup:", isOwn)
-    return isOwn
+-- === Переменные ===
+local espEnabled = true
+local hitboxEnabled = false
+local hitboxSize = 1
+local originalHeads = {}
+local espElements = {}
+local processedParts = {}
+local sliders = {}
+local frame, gui
+local lastUpdate = 0
+local UPDATE_INTERVAL = 1.2
+local connections = {}
+
+-- === Уведомление ===
+local function notify(text)
+    local n = Instance.new("TextLabel")
+    n.Size = UDim2.new(0, 250, 0, 40)
+    n.Position = UDim2.new(0.5, -125, 0.1, 0)
+    n.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    n.TextColor3 = Color3.fromRGB(255,255,255)
+    n.Font = Enum.Font.Gotham
+    n.TextSize = 14
+    n.Text = text
+    n.Parent = gui
+    n.BackgroundTransparency = 1; n.TextTransparency = 1
+    Instance.new("UICorner", n).CornerRadius = UDim.new(0,10)
+    Instance.new("UIStroke", n).Color = Color3.fromRGB(100,100,100)
+    TweenService:Create(n, TweenInfo.new(0.3), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
+    task.delay(1.8, function()
+        TweenService:Create(n, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
+        task.delay(0.3, function() n:Destroy() end)
+    end)
 end
 
--- Функция для обработки папки или модели Collision/Collisions
-local function processCollisionObject(obj, size)
-    local children = obj:GetChildren()
-    for i, part in ipairs(children) do
-        if part:IsA("BasePart") then
-            if not processedParts[part] or processedParts[part].size ~= size then
-                print("Processing part in", obj:GetFullName(), "Index:", i, "Name:", part.Name)
-                part.Size = Vector3.new(size, size, size)
-                part.CanCollide = false
-                part.CanQuery = true
-                processedParts[part] = {size = size}
-            else
-                print("Skipped already processed part:", part:GetFullName(), "Index:", i)
+-- === Вайтлист ===
+local function isWhitelisted(model)
+    local owner = model:GetAttribute("Owner")
+    return owner and (owner == player or WHITELIST[tostring(owner)])
+end
+
+-- === ESP ===
+local function createESP(part, color)
+    if espElements[part] then return end
+    local hl = Instance.new("Highlight")
+    hl.FillColor = color
+    hl.OutlineColor = Color3.fromRGB(255,255,255)
+    hl.FillTransparency = 0.4
+    hl.OutlineTransparency = 0
+    hl.Adornee = part
+    hl.Parent = part
+    espElements[part] = hl
+end
+
+-- === Коллизии ===
+local function processPart(part, size)
+    if not part:IsA("BasePart") or (processedParts[part] and processedParts[part] == size) then return end
+    part.Size = Vector3.new(size, size, size)
+    part.CanCollide = false
+    part.CanQuery = true
+    processedParts[part] = size
+end
+
+local function processModel(model, size, color)
+    if not model or isWhitelisted(model) then return end
+    local collisionFolder = model:FindFirstChild("Collision") or model:FindFirstChild("Collisions")
+    if collisionFolder then
+        for _, part in ipairs(collisionFolder:GetChildren()) do
+            if part:IsA("BasePart") then
+                processPart(part, size)
             end
-        else
-            print("Skipped non-BasePart in", obj:GetFullName(), "Index:", i, "Name:", part.Name, "Class:", part.ClassName)
         end
     end
-end
-
--- Функция для рекурсивного поиска всех папок и моделей Collision/Collisions
-local function collectCollisionParts(model, size)
-    if not model or not isScriptActive then return end
-    
-    if not isOwnGroup(model) then
-        print("Processing model:", model.Name, "in", model.Parent.Name)
-        for _, child in ipairs(model:GetDescendants()) do
-            if (child.Name == "Collision" or child.Name == "Collisions") and (child:IsA("Folder") or child:IsA("Model")) then
-                print("Found Collision/Collisions:", child:GetFullName())
-                processCollisionObject(child, size)
-            end
-        end
-    else
-        print("Skipping model (own group):", model.Name)
-    end
-end
-
--- Функция для обработки скрытых частей дронов
-local function processDroneParts()
-    local dronePart = getNil("Part", "Part")
-    if dronePart then
-        print("Found hidden drone Part:", dronePart:GetFullName())
-        local parentModel = dronePart:FindFirstAncestorOfClass("Model")
-        if parentModel and parentModel.Parent.Name == "Drone Workspace" and not isOwnGroup(parentModel) then
-            if not processedParts[dronePart] or processedParts[dronePart].size ~= 60 then
-                print("Processing drone part:", dronePart:GetFullName())
-                dronePart.Size = Vector3.new(60, 60, 60)
-                dronePart.CanCollide = false
-                dronePart.CanQuery = true
-                processedParts[dronePart] = {size = 60}
-            else
-                print("Skipped already processed drone part:", dronePart:GetFullName())
-            end
-        else
-            print("Skipped drone part (no valid model or own group):", dronePart:GetFullName())
-        end
-    else
-        print("No hidden drone Part found")
-    end
-end
-
--- Функция для установки SpeedUpgrades для всех моделей
-local function processSpeedUpgrades(model)
-    local speedUpgrades = model:GetAttribute("SpeedUpgrades")
-    print("Checking SpeedUpgrades for", model.Name, "Current value:", speedUpgrades)
-    if speedUpgrades == nil or speedUpgrades ~= 5 then
+    if model:GetAttribute("SpeedUpgrades") ~= 5 then
         model:SetAttribute("SpeedUpgrades", 5)
-        print("Set SpeedUpgrades to 5 for", model.Name)
-    else
-        print("SpeedUpgrades already 5 for", model.Name)
     end
-end
-
--- Функция для создания ESP
-local function createESP(part)
-    if not part or espElements[part] then return end
-    local highlight = Instance.new("Highlight")
-    highlight.FillColor = Color3.fromRGB(0, 255, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.Parent = part
-    espElements[part] = highlight
-    print("Created ESP for part:", part:GetFullName())
-end
-
--- Функция для удаления ESP
-local function removeESP(part)
-    if espElements[part] then
-        espElements[part]:Destroy()
-        espElements[part] = nil
-        print("Removed ESP for part:", part:GetFullName())
-    end
-end
-
--- Функция для очистки всех ESP
-local function clearAllESP()
-    for part, highlight in pairs(espElements) do
-        if highlight and highlight.Parent then
-            highlight:Destroy()
-        end
-    end
-    espElements = {}
-    print("Cleared all ESP")
-end
-
--- Функция для обработки субмарин (ESP)
-local function processSubmarine(sub)
-    if not isScriptActive or not sub:IsA("Model") then return end
-    
-    local isOwn = isOwnGroup(sub)
-    for _, descendant in ipairs(sub:GetDescendants()) do
-        if descendant:IsA("BasePart") and not descendant.Parent:IsA("Accessory") then
-            if isESPEnabled and not isOwn then
-                createESP(descendant)
-            else
-                removeESP(descendant)
+    if espEnabled then
+        for _, part in ipairs(model:GetDescendants()) do
+            if part:IsA("BasePart") and not part.Parent:IsA("Accessory") then
+                createESP(part, color)
             end
         end
     end
 end
 
--- Функция для обновления всех рабочих пространств
-local function updateWorkspaces()
-    if not isScriptActive then return end
-    local gameSystems = workspace:FindFirstChild("Game Systems")
-    if not gameSystems then
-        print("Game Systems not found")
-        return
+-- === Дрон ===
+local function processDrone()
+    if not getnilinstances then return end
+    for _, v in ipairs(getnilinstances()) do
+        if v.Name == "Part" and v:IsA("BasePart") then
+            local model = v:FindFirstAncestorWhichIsA("Model")
+            if model and model.Parent and model.Parent.Name == "Drone Workspace" and not isWhitelisted(model) then
+                processPart(v, CATEGORIES.Drone.size)
+                if espEnabled then createESP(v, CATEGORIES.Drone.color) end
+            end
+            break
+        end
     end
-    
-    -- Обработка Collision/Collisions и SpeedUpgrades для всех рабочих пространств
-    for workspaceName, size in pairs(workspaceSizes) do
-        local workspaceFolder = gameSystems:FindFirstChild(workspaceName)
-        if workspaceFolder then
-            print("Processing workspace:", workspaceName)
-            for _, model in ipairs(workspaceFolder:GetChildren()) do
-                if model:IsA("Model") then
-                    collectCollisionParts(model, size)
-                    processSpeedUpgrades(model)
+end
+
+-- === Hitbox ===
+local function updateHitboxes(apply)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and not EXCLUDED[plr.Name] and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                if apply then
+                    if not originalHeads[plr] then
+                        originalHeads[plr] = head.Size
+                    end
+                    head.Size = originalHeads[plr] * hitboxSize
+                    head.CanCollide = false
+                    head.Massless = true
+                else
+                    if originalHeads[plr] then
+                        head.Size = originalHeads[plr]
+                        head.CanCollide = true
+                        head.Massless = false
+                        originalHeads[plr] = nil
+                    end
                 end
             end
-        else
-            print("Workspace not found:", workspaceName)
         end
-    end
-    
-    -- Обработка скрытых частей дронов
-    processDroneParts()
-    
-    -- Обработка ESP для субмарин
-    local submarineWorkspace = gameSystems:FindFirstChild("Submarine Workspace")
-    if submarineWorkspace then
-        clearAllESP()
-        for _, sub in ipairs(submarineWorkspace:GetChildren()) do
-            processSubmarine(sub)
-        end
-    else
-        print("Submarine Workspace not found")
     end
 end
 
--- Периодическое обновление
-local heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
-    if not isScriptActive then return end
-    lastUpdate = lastUpdate + deltaTime
-    if lastUpdate >= updateInterval then
-        updateWorkspaces()
-        lastUpdate = 0
+-- === ПОЛНОЕ УНИЧТОЖЕНИЕ ===
+local function unloadScript()
+    for _, conn in ipairs(connections) do
+        if conn.Connected then conn:Disconnect() end
     end
-end)
-table.insert(connections, heartbeatConnection)
-
--- Очистка кэша при удалении объектов
-local function onDescendantRemoving(descendant)
-    if processedParts[descendant] then
-        processedParts[descendant] = nil
+    for _, hl in pairs(espElements) do
+        if hl and hl.Parent then hl:Destroy() end
     end
-    if espElements[descendant] then
-        removeESP(descendant)
+    updateHitboxes(false)
+    for part, _ in pairs(processedParts) do
+        if part and part.Parent then
+            part.Size = Vector3.new(1,1,1)
+            part.CanCollide = true
+        end
     end
+    if gui then gui:Destroy() end
+    notify("Скрипт полностью выгружен")
 end
-table.insert(connections, workspace.DescendantRemoving:Connect(onDescendantRemoving))
 
--- Обработчик кнопки Toggle ESP
-espButton.Activated:Connect(function()
-    isESPEnabled = not isESPEnabled
-    espButton.Text = "Toggle Submarine ESP: " .. (isESPEnabled and "ON" or "OFF")
-    print("ESP Toggled:", isESPEnabled)
-    updateWorkspaces()
-end)
+-- === GUI ===
+local playerGui = player:WaitForChild("PlayerGui", 5)
+if not playerGui then return end
 
--- Обработчик кнопки Close GUI
-closeButton.Activated:Connect(function()
-    screenGui.Enabled = false
-end)
+gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
 
--- Обработчик кнопки Kill Script
-killButton.Activated:Connect(function()
-    isScriptActive = false
-    for _, connection in ipairs(connections) do
-        connection:Disconnect()
+frame = Instance.new("ScrollingFrame")
+frame.Size = UDim2.new(0, 350, 0, 500)
+frame.Position = UDim2.new(0.5, -175, 0.5, -250)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+frame.ClipsDescendants = true
+frame.ScrollingDirection = Enum.ScrollingDirection.Y
+frame.ScrollBarThickness = 10
+frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local corner = Instance.new("UICorner", frame); corner.CornerRadius = UDim.new(0,16)
+local stroke = Instance.new("UIStroke", frame); stroke.Thickness = 2; stroke.Color = Color3.fromRGB(80,80,80)
+local gradient = Instance.new("UIGradient", frame)
+gradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(40,40,40)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10,10,10))}
+gradient.Rotation = 45
+
+local layout = Instance.new("UIListLayout", frame)
+layout.Padding = UDim.new(0,20); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local padding = Instance.new("UIPadding", frame)
+padding.PaddingTop = UDim.new(0,20); padding.PaddingLeft = UDim.new(0,20); padding.PaddingRight = UDim.new(0,20)
+
+-- Перетаскивание
+local dragging, dragStart, startPos
+frame.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true; dragStart = i.Position; startPos = frame.Position
     end
-    connections = {}
-    
-    clearAllESP()
-    processedParts = {}
-    screenGui.Enabled = false
 end)
+UserInputService.InputChanged:Connect(function(i)
+    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- Анимация
+frame.Size = UDim2.new(0,0,0,0)
+TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0,350,0,500)}):Play()
+
+-- Заголовок
+local title = Instance.new("TextLabel", frame)
+title.Text = "ESP & Hitbox"; title.Size = UDim2.new(0.9,0,0,50); title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255,255,255); title.Font = Enum.Font.GothamBold; title.TextSize = 20; title.LayoutOrder = 1
+
+-- Слайдеры
+local order = 2
+for name, data in pairs(CATEGORIES) do
+    -- Лейбл
+    local label = Instance.new("TextLabel", frame)
+    label.Text = name .. ": " .. data.size
+    label.Size = UDim2.new(0.9,0,0,30)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.LayoutOrder = order
+    sliders[name] = {label = label, size = data.size}
+
+    -- Контейнер слайдера
+    local sliderContainer = Instance.new("Frame", frame)
+    sliderContainer.Size = UDim2.new(0.9,0,0,20)
+    sliderContainer.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    sliderContainer.ClipsDescendants = true  -- КЛЮЧЕВОЕ: СЛАЙДЕР НЕ ВЫХОДИТ
+    sliderContainer.LayoutOrder = order + 1
+    Instance.new("UICorner", sliderContainer).CornerRadius = UDim.new(0,10)
+
+    -- Полоса
+    local bar = Instance.new("Frame", sliderContainer)
+    bar.Size = UDim2.new((data.size - 10) / 390, 0, 1, 0)
+    bar.BackgroundColor3 = data.color
+    bar.BorderSizePixel = 0
+
+    -- Кнопка слайдера
+    local btn = Instance.new("TextButton", sliderContainer)
+    btn.Size = UDim2.new(0, 30, 0, 30)
+    btn.Position = UDim2.new((data.size - 10) / 390, 0, 0, -5)  -- В пределах контейнера
+    btn.BackgroundColor3 = Color3.fromRGB(200,200,200)
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,15)
+
+    -- Логика слайдера
+    local dragging = false
+    btn.MouseButton1Down:Connect(function() dragging = true end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging and sliderContainer.Parent then
+            local mouseX = UserInputService:GetMouseLocation().X
+            local containerX = sliderContainer.AbsolutePosition.X
+            local containerW = sliderContainer.AbsoluteSize.X
+            local rel = math.clamp((mouseX - containerX) / containerW, 0, 1)
+            btn.Position = UDim2.new(rel, 0, 0, -5)
+            bar.Size = UDim2.new(rel, 0, 1, 0)
+            local val = math.floor(10 + rel * 390)
+            CATEGORIES[name].size = val
+            sliders[name].size = val
+            label.Text = name .. ": " .. val
+        end
+    end)
+
+    order = order + 2
+end
+
+-- Кнопки (все с целыми LayoutOrder)
+local espBtn = Instance.new("TextButton", frame)
+espBtn.Text = "ESP: Вкл"; espBtn.Size = UDim2.new(0.9,0,0,50); espBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+espBtn.TextColor3 = Color3.fromRGB(255,255,255); espBtn.Font = Enum.Font.Gotham; espBtn.LayoutOrder = order
+Instance.new("UICorner", espBtn).CornerRadius = UDim.new(0,10)
+
+local hitboxBtn = Instance.new("TextButton", frame)
+hitboxBtn.Text = "Hitbox: Выкл"; hitboxBtn.Size = UDim2.new(0.9,0,0,50); hitboxBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+hitboxBtn.TextColor3 = Color3.fromRGB(255,255,255); hitboxBtn.Font = Enum.Font.Gotham; hitboxBtn.LayoutOrder = order + 1
+Instance.new("UICorner", hitboxBtn).CornerRadius = UDim.new(0,10)
+
+local unloadBtn = Instance.new("TextButton", frame)
+unloadBtn.Text = "Выгрузить"
+unloadBtn.Size = UDim2.new(0.9,0,0,50)
+unloadBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+unloadBtn.TextColor3 = Color3.fromRGB(255,255,255)
+unloadBtn.Font = Enum.Font.Gotham
+unloadBtn.LayoutOrder = order + 2
+Instance.new("UICorner", unloadBtn).CornerRadius = UDim.new(0,10)
+
+unloadBtn.MouseButton1Click:Connect(unloadScript)
+
+-- === Логика кнопок ===
+espBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espBtn.Text = "ESP: " .. (espEnabled and "Вкл" or "Выкл")
+    espBtn.BackgroundColor3 = espEnabled and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
+    if not espEnabled then
+        for _, hl in pairs(espElements) do if hl and hl.Parent then hl:Destroy() end end
+        espElements = {}
+    end
+end)
+
+hitboxBtn.MouseButton1Click:Connect(function()
+    hitboxEnabled = not hitboxEnabled
+    hitboxBtn.Text = "Hitbox: " .. (hitboxEnabled and "Вкл" or "Выкл")
+    hitboxBtn.BackgroundColor3 = hitboxEnabled and Color3.fromRGB(200,100,0) or Color3.fromRGB(40,40,40)
+    updateHitboxes(hitboxEnabled)
+end)
+
+-- === K / L ===
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.KeyCode == Enum.KeyCode.K then
+        frame.Visible = not frame.Visible
+        notify(frame.Visible and "GUI открыт" or "GUI свёрнут")
+    elseif i.KeyCode == Enum.KeyCode.L then
+        hitboxEnabled = not hitboxEnabled
+        hitboxBtn.Text = "Hitbox: " .. (hitboxEnabled and "Вкл" or "Выкл")
+        hitboxBtn.BackgroundColor3 = hitboxEnabled and Color3.fromRGB(200,100,0) or Color3.fromRGB(40,40,40)
+        updateHitboxes(hitboxEnabled)
+    end
+end)
+
+-- === Основной цикл ===
+table.insert(connections, RunService.Heartbeat:Connect(function(dt)
+    lastUpdate = lastUpdate + dt
+    if lastUpdate < UPDATE_INTERVAL or not gui.Parent then return end
+    lastUpdate = 0
+
+    local gameSystems = workspace:FindFirstChild("Game Systems")
+    if not gameSystems then return end
+
+    for name, data in pairs(CATEGORIES) do
+        local ws = gameSystems:FindFirstChild(data.ws)
+        if ws then
+            for _, model in ipairs(ws:GetChildren()) do
+                if model:IsA("Model") then
+                    processModel(model, data.size, data.color)
+                end
+            end
+        end
+    end
+    processDrone()
+    if hitboxEnabled then updateHitboxes(true) end
+end))
+
+-- === Очистка ===
+table.insert(connections, workspace.DescendantRemoving:Connect(function(obj)
+    processedParts[obj] = nil
+    if espElements[obj] then espElements[obj]:Destroy(); espElements[obj] = nil end
+end))
+
+table.insert(connections, Players.PlayerAdded:Connect(function(plr)
+    if hitboxEnabled then
+        plr.CharacterAdded:Connect(function() task.wait(1); updateHitboxes(true) end)
+    end
+end))
+
+notify("Скрипт загружен. Слайдер в пределах. Кнопки целые.")
