@@ -12,7 +12,7 @@ local Humanoid = Character:WaitForChild("Humanoid")
 
 -- 🕺 Создаем анимацию
 local Anim = Instance.new("Animation")
-Anim.AnimationId = "rbxassetid://14659143045"
+Anim.AnimationId = "rbxassetid://12351854556"
 local track = Humanoid:LoadAnimation(Anim)
 
 -- 🔄 Управление состоянием анимации
@@ -22,13 +22,13 @@ local function sidewaysDashTrue()
 	if toggleState then return end
 	toggleState = true
 	track.Looped = true
-	track:Play(1, 1, 100)
+	track:Play(1, 1, 1)
 end
 
 local function sidewaysDashFalse()
 	if not toggleState then return end
 	toggleState = false
-	local fadeTime = 0.5
+	local fadeTime = 0
 	local startWeight = track.WeightCurrent or 1
 	local startTime = tick()
 
@@ -154,7 +154,7 @@ end
 
 -- 🧪 Применяем навык "Sideways Dash"
 local skillToggle = false
-local TestSkill2 = Skill("Sideways Dash", function()
+local TestSkill2 = Skill("Fake Counter", function()
 	skillToggle = not skillToggle
 	if skillToggle then
 		sidewaysDashTrue()
