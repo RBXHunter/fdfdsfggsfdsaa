@@ -1,0 +1,172 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or player.CharacterAdded:Wait():WaitForChild("HumanoidRootPart")
+local ROCKS = workspace:WaitForChild("Rocks")
+local DISTANCE = 20
+local espCache = {}
+local running = true
+local espEnabled = true
+local UPDATE_INTERVAL = 0.5
+
+-- ESP функции
+local function removeESP(pebble)
+	if espCache[pebble] then
+		espCache[pebble]:Destroy()
+		espCache[pebble] = nil
+	end
+end
+
+local function ensurePart(pebble)
+	local part = pebble:FindFirstChildWhichIsA("BasePart") or pebble:FindFirstChildWhichIsA("MeshPart")
+	if not part then
+		part = Instance.new("Part")
+		part.Size = Vector3.new(1,1,1)
+		part.Anchored = true
+		part.CanCollide = false
+		part.Transparency = 1
+		part.Position = hrp.Position + Vector3.new(0,3,0)
+		part.Parent = pebble
+	end
+	return part
+end
+
+local function getPebbleText(pebble)
+	local counts = {}
+	for _, ore in ipairs(pebble:GetChildren()) do
+		if ore:IsA("Model") then
+			local oreName = ore:GetAttribute("Ore")
+			if oreName then
+				counts[oreName] = (counts[oreName] or 0) + 1
+			end
+		end
+	end
+	local lines = {}
+	for name, count in pairs(counts) do
+		table.insert(lines, name .. " x" .. count)
+	end
+	if #lines == 0 then return nil end
+	return table.concat(lines, "\n")
+end
+
+local function createESP(pebble)
+	if not espEnabled then
+		removeESP(pebble)
+		return
+	end
+	local text = getPebbleText(pebble)
+	if not text then
+		removeESP(pebble)
+		return
+	end
+	local part = ensurePart(pebble)
+	if espCache[pebble] then
+		espCache[pebble].TextLabel.Text = text
+		return
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "PebbleESP"
+	gui.Adornee = part
+	gui.Size = UDim2.new(0,180,0,50)
+	gui.StudsOffset = Vector3.new(0,3,0)
+	gui.AlwaysOnTop = true
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1,0,1,0)
+	label.BackgroundTransparency = 0.4
+	label.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	label.TextScaled = false
+	label.Font = Enum.Font.SourceSansBold
+	label.TextColor3 = Color3.fromRGB(255,200,100)
+	label.TextStrokeTransparency = 1
+	label.TextStrokeColor3 = Color3.fromRGB(255,255,255)
+	label.Text = text
+	label.Parent = gui
+
+	local uicorner = Instance.new("UICorner")
+	uicorner.CornerRadius = UDim.new(0,8)
+	uicorner.Parent = label
+
+	gui.Parent = part
+	espCache[pebble] = gui
+end
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ESPControlGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 130, 0, 40)
+frame.Position = UDim2.new(0,20,0,20)
+frame.BackgroundTransparency = 1
+frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+-- Создаем кастомную кнопку Kill Script, как ты описал
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 130, 0, 40)
+button.Position = UDim2.new(0,10,0,15)
+button.Text = "kill Script"
+button.Font = Enum.Font.PermanentMarker
+
+button.TextColor3 = Color3.fromRGB(0,0,0)
+button.TextSize = 30
+button.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+button.TextStrokeTransparency = 0
+button.BackgroundColor3 = Color3.fromRGB(255,255,255) -- фон под градиент
+button.Parent = frame
+button.AutoButtonColor = true
+
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(1,10)
+uicorner.Parent = button
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),    -- чисто красный
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200,200,200)), -- центр серый
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,255))     -- чисто синий
+}
+gradient.Rotation = 0
+gradient.Parent = button
+
+button.MouseButton1Click:Connect(function()
+	running = false
+	for pebble, gui in pairs(espCache) do
+		gui:Destroy()
+	end
+	espCache = {}
+	screenGui:Destroy()
+end)
+
+-- MAIN LOOP
+spawn(function()
+	while running do
+		for _, island in ipairs(ROCKS:GetChildren()) do
+			for _, obj in ipairs(island:GetDescendants()) do
+				if obj:IsA("Model") then
+					local hasOre = false
+					for _, child in ipairs(obj:GetChildren()) do
+						if child:IsA("Model") and child:GetAttribute("Ore") then
+							hasOre = true
+							break
+						end
+					end
+					if hasOre then
+						local posPart = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildWhichIsA("MeshPart")
+						local pos = posPart and posPart.Position or obj:GetModelCFrame().p
+						if (hrp.Position - pos).Magnitude <= DISTANCE then
+							createESP(obj)
+						else
+							removeESP(obj)
+						end
+					end
+				end
+			end
+		end
+		wait(UPDATE_INTERVAL)
+	end
+end)
