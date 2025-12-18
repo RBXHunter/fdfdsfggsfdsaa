@@ -129,7 +129,7 @@ button.BackgroundColor3 = Color3.fromRGB(255,255,255)
 button.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(1, 10)
 corner.Parent = button
 
 local gradient = Instance.new("UIGradient")
