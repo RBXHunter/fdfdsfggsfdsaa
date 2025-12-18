@@ -1,36 +1,46 @@
--- SERVICES
+--================ SERVICES ================--
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 local ROCKS = workspace:WaitForChild("Rocks")
+
+--================ CONFIG ================--
 local DISTANCE = 20
 local UPDATE_INTERVAL = 0.5
 
+--================ STATE ================--
 local running = true
 local espCache = {}
+local rockAnchor = {}
 
--- ===== UTIL =====
+--================ UTIL ================--
 
-local function getBasePart(model)
-	return model:FindFirstChildWhichIsA("BasePart", true)
+local function getRockAnchor(rock)
+	if rockAnchor[rock] and rockAnchor[rock].Parent then
+		return rockAnchor[rock]
+	end
+
+	local part = rock:FindFirstChildWhichIsA("BasePart", true)
+	if part then
+		rockAnchor[rock] = part
+		return part
+	end
+
+	return nil
 end
 
-local function isValidRock(model)
-	if not model:IsA("Model") then return false end
-	if not getBasePart(model) then return false end
-
-	for _, child in ipairs(model:GetChildren()) do
+local function hasOre(rock)
+	for _, child in ipairs(rock:GetChildren()) do
 		if child:IsA("Model") and child:GetAttribute("Ore") then
 			return true
 		end
 	end
-
 	return false
 end
 
-local function getRockText(rock)
+local function getOreText(rock)
 	local counts = {}
 
 	for _, ore in ipairs(rock:GetChildren()) do
@@ -47,31 +57,29 @@ local function getRockText(rock)
 		table.insert(lines, name .. " x" .. count)
 	end
 
-	if #lines == 0 then
-		return nil
-	end
-
+	if #lines == 0 then return nil end
 	return table.concat(lines, "\n")
 end
 
--- ===== ESP =====
+--================ ESP ================--
 
 local function removeESP(rock)
 	if espCache[rock] then
 		espCache[rock]:Destroy()
 		espCache[rock] = nil
 	end
+	rockAnchor[rock] = nil
 end
 
 local function createESP(rock)
-	local text = getRockText(rock)
+	local text = getOreText(rock)
 	if not text then
 		removeESP(rock)
 		return
 	end
 
-	local part = getBasePart(rock)
-	if not part then return end
+	local anchor = getRockAnchor(rock)
+	if not anchor then return end
 
 	if espCache[rock] then
 		espCache[rock].TextLabel.Text = text
@@ -80,7 +88,7 @@ local function createESP(rock)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "OreESP"
-	gui.Adornee = part
+	gui.Adornee = anchor
 	gui.Size = UDim2.new(0, 180, 0, 60)
 	gui.StudsOffset = Vector3.new(0, 3, 0)
 	gui.AlwaysOnTop = true
@@ -97,11 +105,11 @@ local function createESP(rock)
 	label.Text = text
 	label.Parent = gui
 
-	gui.Parent = part
+	gui.Parent = anchor
 	espCache[rock] = gui
 end
 
--- ===== GUI =====
+--================ GUI ================--
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "OreESP_GUI"
@@ -120,9 +128,9 @@ button.TextStrokeTransparency = 0
 button.BackgroundColor3 = Color3.fromRGB(255,255,255)
 button.Parent = screenGui
 
-local uicorner = Instance.new("UICorner")
-uicorner.CornerRadius = UDim.new(0, 10)
-uicorner.Parent = button
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = button
 
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
@@ -138,24 +146,28 @@ button.MouseButton1Click:Connect(function()
 		gui:Destroy()
 	end
 	espCache = {}
+	rockAnchor = {}
 	screenGui:Destroy()
 end)
 
--- ===== MAIN LOOP =====
+--================ MAIN LOOP ================--
 
 task.spawn(function()
 	while running do
 		for _, island in ipairs(ROCKS:GetChildren()) do
-			for _, rock in ipairs(island:GetChildren()) do
-				if isValidRock(rock) then
-					local part = getBasePart(rock)
-					if part and (hrp.Position - part.Position).Magnitude <= DISTANCE then
-						createESP(rock)
+			for _, obj in ipairs(island:GetDescendants()) do
+				if obj:IsA("Model") and hasOre(obj) then
+					local anchor = getRockAnchor(obj)
+					if anchor then
+						local dist = (hrp.Position - anchor.Position).Magnitude
+						if dist <= DISTANCE then
+							createESP(obj)
+						else
+							removeESP(obj)
+						end
 					else
-						removeESP(rock)
+						removeESP(obj)
 					end
-				else
-					removeESP(rock)
 				end
 			end
 		end
@@ -163,16 +175,16 @@ task.spawn(function()
 	end
 end)
 
--- ===== DYNAMIC ORE SPAWN =====
+--================ DYNAMIC ORE SPAWN ================--
 
 for _, island in ipairs(ROCKS:GetChildren()) do
 	island.DescendantAdded:Connect(function(child)
 		if not running then return end
 		if child:IsA("Model") and child:GetAttribute("Ore") then
 			local rock = child.Parent
-			if rock and isValidRock(rock) then
-				local part = getBasePart(rock)
-				if part and (hrp.Position - part.Position).Magnitude <= DISTANCE then
+			if rock and rock:IsA("Model") then
+				local anchor = getRockAnchor(rock)
+				if anchor and (hrp.Position - anchor.Position).Magnitude <= DISTANCE then
 					createESP(rock)
 				end
 			end
