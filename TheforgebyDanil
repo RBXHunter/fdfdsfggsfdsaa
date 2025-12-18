@@ -1,38 +1,39 @@
+-- SERVICES
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
+
 local ROCKS = workspace:WaitForChild("Rocks")
 local DISTANCE = 20
-local espCache = {}
-local running = true
 local UPDATE_INTERVAL = 0.5
 
--- FUNCTIONS
-local function removeESP(pebble)
-	if espCache[pebble] then
-		espCache[pebble]:Destroy()
-		espCache[pebble] = nil
-	end
+local running = true
+local espCache = {}
+
+-- ===== UTIL =====
+
+local function getBasePart(model)
+	return model:FindFirstChildWhichIsA("BasePart", true)
 end
 
-local function ensurePart(pebble)
-	local part = pebble:FindFirstChildWhichIsA("BasePart") or pebble:FindFirstChildWhichIsA("MeshPart")
-	if not part then
-		part = Instance.new("Part")
-		part.Size = Vector3.new(1,1,1)
-		part.Anchored = true
-		part.CanCollide = false
-		part.Transparency = 1
-		part.Position = hrp.Position + Vector3.new(0,3,0)
-		part.Parent = pebble
+local function isValidRock(model)
+	if not model:IsA("Model") then return false end
+	if not getBasePart(model) then return false end
+
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("Model") and child:GetAttribute("Ore") then
+			return true
+		end
 	end
-	return part
+
+	return false
 end
 
-local function getPebbleText(pebble)
+local function getRockText(rock)
 	local counts = {}
-	for _, ore in ipairs(pebble:GetChildren()) do
+
+	for _, ore in ipairs(rock:GetChildren()) do
 		if ore:IsA("Model") then
 			local oreName = ore:GetAttribute("Ore")
 			if oreName then
@@ -53,127 +54,127 @@ local function getPebbleText(pebble)
 	return table.concat(lines, "\n")
 end
 
-local function createESP(pebble)
-	local text = getPebbleText(pebble)
+-- ===== ESP =====
+
+local function removeESP(rock)
+	if espCache[rock] then
+		espCache[rock]:Destroy()
+		espCache[rock] = nil
+	end
+end
+
+local function createESP(rock)
+	local text = getRockText(rock)
 	if not text then
-		removeESP(pebble)
+		removeESP(rock)
 		return
 	end
 
-	local part = ensurePart(pebble)
+	local part = getBasePart(rock)
+	if not part then return end
 
-	if espCache[pebble] then
-		espCache[pebble].TextLabel.Text = text
+	if espCache[rock] then
+		espCache[rock].TextLabel.Text = text
 		return
 	end
 
 	local gui = Instance.new("BillboardGui")
-	gui.Name = "PebbleESP"
+	gui.Name = "OreESP"
 	gui.Adornee = part
-	gui.Size = UDim2.new(0,180,0,50)
-	gui.StudsOffset = Vector3.new(0,3,0)
+	gui.Size = UDim2.new(0, 180, 0, 60)
+	gui.StudsOffset = Vector3.new(0, 3, 0)
 	gui.AlwaysOnTop = true
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1,0,1,0)
+	label.Name = "TextLabel"
+	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
+	label.TextWrapped = true
 	label.TextScaled = true
 	label.Font = Enum.Font.SourceSansBold
-	label.TextColor3 = Color3.fromRGB(255,200,100)
+	label.TextColor3 = Color3.fromRGB(255, 200, 100)
 	label.TextStrokeTransparency = 0
 	label.Text = text
 	label.Parent = gui
 
 	gui.Parent = part
-	espCache[pebble] = gui
+	espCache[rock] = gui
 end
 
--- GUI с кастомной кнопкой Kill Script
+-- ===== GUI =====
+
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ESPControlGUI"
+screenGui.Name = "OreESP_GUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 150, 0, 60)
-frame.Position = UDim2.new(0,20,0,20)
-frame.BackgroundTransparency = 1
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
--- Кастомная кнопка Kill Script
 local button = Instance.new("TextButton")
 button.Size = UDim2.new(0, 130, 0, 40)
-button.Position = UDim2.new(0,10,0,10)
-button.Text = "kill Script"
+button.Position = UDim2.new(0, 20, 0, 20)
+button.Text = "Kill Script"
 button.Font = Enum.Font.PermanentMarker
-button.TextColor3 = Color3.fromRGB(0,0,0)
 button.TextSize = 30
+button.TextColor3 = Color3.fromRGB(0,0,0)
 button.TextStrokeColor3 = Color3.fromRGB(0,0,0)
 button.TextStrokeTransparency = 0
-button.BackgroundColor3 = Color3.fromRGB(255,255,255) -- фон под градиент
-button.AutoButtonColor = true
-button.Parent = frame
+button.BackgroundColor3 = Color3.fromRGB(255,255,255)
+button.Parent = screenGui
 
 local uicorner = Instance.new("UICorner")
-uicorner.CornerRadius = UDim.new(0,10)
+uicorner.CornerRadius = UDim.new(0, 10)
 uicorner.Parent = button
 
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),       -- красный
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200,200,200)), -- центр серый
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,255))        -- синий
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200,200,200)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,255))
 }
-gradient.Rotation = 0
 gradient.Parent = button
 
 button.MouseButton1Click:Connect(function()
 	running = false
-	for pebble, gui in pairs(espCache) do
+	for _, gui in pairs(espCache) do
 		gui:Destroy()
 	end
 	espCache = {}
 	screenGui:Destroy()
 end)
 
--- MAIN LOOP
-spawn(function()
+-- ===== MAIN LOOP =====
+
+task.spawn(function()
 	while running do
 		for _, island in ipairs(ROCKS:GetChildren()) do
-			for _, obj in ipairs(island:GetDescendants()) do
-				if obj:IsA("Model") then
-					local hasOre = false
-					for _, child in ipairs(obj:GetChildren()) do
-						if child:IsA("Model") and child:GetAttribute("Ore") then
-							hasOre = true
-							break
-						end
+			for _, rock in ipairs(island:GetChildren()) do
+				if isValidRock(rock) then
+					local part = getBasePart(rock)
+					if part and (hrp.Position - part.Position).Magnitude <= DISTANCE then
+						createESP(rock)
+					else
+						removeESP(rock)
 					end
-					if hasOre then
-						local posPart = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildWhichIsA("MeshPart")
-						local pos = posPart and posPart.Position or obj:GetModelCFrame().p
-						if (hrp.Position - pos).Magnitude <= DISTANCE then
-							createESP(obj)
-						else
-							removeESP(obj)
-						end
-					end
+				else
+					removeESP(rock)
 				end
 			end
 		end
-		wait(UPDATE_INTERVAL)
+		task.wait(UPDATE_INTERVAL)
 	end
 end)
 
--- Отслеживание новых моделей с Ore
+-- ===== DYNAMIC ORE SPAWN =====
+
 for _, island in ipairs(ROCKS:GetChildren()) do
 	island.DescendantAdded:Connect(function(child)
 		if not running then return end
 		if child:IsA("Model") and child:GetAttribute("Ore") then
-			local parent = child.Parent
-			if parent and parent:IsA("Model") then
-				createESP(parent)
+			local rock = child.Parent
+			if rock and isValidRock(rock) then
+				local part = getBasePart(rock)
+				if part and (hrp.Position - part.Position).Magnitude <= DISTANCE then
+					createESP(rock)
+				end
 			end
 		end
 	end)
