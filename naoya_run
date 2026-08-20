@@ -1,0 +1,199 @@
+local Players         = game:GetService("Players")
+local RunService      = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- CONFIG
+local RUN_ANIM_ID     = "rbxassetid://17354976067"
+local TOTAL_FRAMES    = 24       -- количество кадров на цикл
+local FRAME_INTERVAL  = 0.3     -- секунд между кадрами
+local RUN_SPEED_BOOST = 150
+local SKILL_KEY       = Enum.KeyCode.One  -- кнопка первого скилла в TSB
+
+-- STATE
+local holding       = false
+local currentFrame  = 0
+local runAnimTrack  = nil
+local boostConn     = nil
+local humanoid      = nil
+local frameLen      = 0   -- длина одного кадра в секундах анимации, заполнится после загрузки
+
+-- ===== UTIL =====
+
+local function stopBoostLoop()
+    if boostConn then boostConn:Disconnect(); boostConn = nil end
+end
+
+-- Проверяем кулдаун первого скилла по хотбару TSB
+local function isSkill1Ready()
+    local pg = player:FindFirstChild("PlayerGui")
+    if not pg then return true end
+    local hotbar = pg:FindFirstChild("Hotbar")
+    if not hotbar then return true end
+    local slot = hotbar:FindFirstChild("Backpack")
+        and hotbar.Backpack:FindFirstChild("Hotbar")
+        and hotbar.Backpack.Hotbar:FindFirstChild("1")
+    if not slot then return true end
+    local base = slot:FindFirstChild("Base")
+    if not base then return true end
+    -- Кулдаун-фрейм: Size.Y.Scale == 0 означает готов
+    local cd = base.Parent:FindFirstChild("Cooldown")
+    if cd then
+        return cd.Size.Y.Scale == 0
+    end
+    return true
+end
+
+-- Симулируем нажатие клавиши 1 через виртуальный ввод
+local function fireSkill1()
+    if not isSkill1Ready() then return end
+    -- Пробуем через кнопку хотбара напрямую
+    local pg = player:FindFirstChild("PlayerGui")
+    local hotbar = pg and pg:FindFirstChild("Hotbar")
+    local slot = hotbar
+        and hotbar:FindFirstChild("Backpack")
+        and hotbar.Backpack:FindFirstChild("Hotbar")
+        and hotbar.Backpack.Hotbar:FindFirstChild("1")
+    local base = slot and slot:FindFirstChild("Base")
+    if base then
+        -- Кликаем через MouseButton1Click на TextButton слота
+        local btn = base:FindFirstChildWhichIsA("TextButton")
+        if btn then
+            btn:FindFirstChild("MouseButton1Click") -- проверка
+            local ok = pcall(function()
+                btn:FindFirstAncestorWhichIsA("Frame") -- просто тест
+            end)
+            -- Стреляем через FireServer-like: эмулируем нажатие клавиши 1
+        end
+    end
+    -- Универсальный fallback — виртуальное нажатие клавиши
+    pcall(function()
+        local uis = UserInputService
+        -- keyDown через внутренний метод эксплойт-API (работает в Solara/Synapse)
+        if fireclickdetector then return end -- не нужно
+        -- Используем синтетический InputObject
+        local fake = Instance.new("InputObject")
+        fake.KeyCode      = SKILL_KEY
+        fake.UserInputType = Enum.UserInputType.Keyboard
+        fake.UserInputState = Enum.UserInputState.Begin
+        -- В Solara доступен simulatekey / keypress:
+        if keypress then
+            keypress(0x31) -- VK '1'
+        end
+    end)
+end
+
+-- ===== АНИМАЦИЯ: пошаговый переход по кадрам =====
+
+local function stepFrame()
+    if not runAnimTrack or not runAnimTrack.IsPlaying then return end
+    currentFrame = currentFrame + 1
+
+    -- Переводим TimePosition на нужный кадр
+    local targetTime = (currentFrame - 1) * frameLen
+    -- Зажимаем в пределах длины анимации
+    if frameLen > 0 then
+        runAnimTrack.TimePosition = math.clamp(targetTime, 0, runAnimTrack.Length - 0.01)
+    end
+
+    -- После 24-го кадра — юзаем скилл и сбрасываем счётчик
+    if currentFrame >= TOTAL_FRAMES then
+        currentFrame = 0
+        fireSkill1()
+    end
+end
+
+-- ===== СТАРТ / СТОП =====
+
+local function startRunning()
+    if not _G.isScriptEnabled or not humanoid then return end
+    holding = true
+    currentFrame = 0
+
+    -- Загружаем анимацию
+    if runAnimTrack then runAnimTrack:Stop(); runAnimTrack:Destroy(); runAnimTrack = nil end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = RUN_ANIM_ID
+    runAnimTrack = humanoid:LoadAnimation(anim)
+    runAnimTrack.Looped = true
+    runAnimTrack:Play()
+
+    -- Ждём загрузки длины
+    local t = tick()
+    while runAnimTrack.Length == 0 and tick() - t < 2 do
+        task.wait(0.05)
+    end
+
+    if runAnimTrack.Length == 0 then
+        warn("[naoya_run] Анимация не загрузилась")
+        return
+    end
+
+    -- Длина одного "кадра" = длина анимации / 24
+    frameLen = runAnimTrack.Length / TOTAL_FRAMES
+    -- Начинаем с паузы (останавливаем автовоспроизведение, управляем вручную)
+    runAnimTrack:AdjustSpeed(0)
+    runAnimTrack.TimePosition = 0
+
+    -- Спидбуст
+    stopBoostLoop()
+    boostConn = RunService.Heartbeat:Connect(function()
+        if _G.isScriptEnabled and holding and humanoid then
+            humanoid.WalkSpeed = 16 + RUN_SPEED_BOOST
+        end
+    end)
+
+    -- Главный цикл: каждые FRAME_INTERVAL секунд — шаг кадра
+    task.spawn(function()
+        while holding and _G.isScriptEnabled do
+            stepFrame()
+            task.wait(FRAME_INTERVAL)
+        end
+    end)
+end
+
+local function stopRunning()
+    holding = false
+    currentFrame = 0
+
+    stopBoostLoop()
+
+    if runAnimTrack then
+        runAnimTrack:Stop()
+        runAnimTrack:Destroy()
+        runAnimTrack = nil
+    end
+
+    if humanoid then
+        humanoid.WalkSpeed = 36
+    end
+end
+
+-- ===== ВВОД =====
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not _G.isScriptEnabled then return end
+    if input.KeyCode == Enum.KeyCode.Z and not holding then
+        startRunning()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Z then
+        stopRunning()
+    end
+end)
+
+-- ===== ПЕРСОНАЖ =====
+
+local function onCharacterAdded(character)
+    humanoid = character:WaitForChild("Humanoid")
+    stopRunning()
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+player.CharacterAdded:Connect(onCharacterAdded)
